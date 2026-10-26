@@ -13,6 +13,8 @@ Scope: decides what actually ships first, in what order, out of the full vision 
 
 See [system-architecture-spec.md](./system-architecture-spec.md) for the concrete services, unified data model, and tech stack this phase builds.
 
+See [testing-strategy-spec.md](./testing-strategy-spec.md) for how each phase's exit criterion actually gets verified — Podman-based backend + per-platform emulator/simulator/VM testing, mapped to these same phases in its §7.
+
 **Offline-first is a Phase 0 foundation item, not a later enhancement.** Per [offline-sync-spec.md](./offline-sync-spec.md), the local embedded DB (policy cache, consent-flag cache, durable event queue) and the sync protocol must exist before Phase 1's lockout demo, because local-first enforcement is what Phase 1's exit criterion actually depends on — "the device locks at the limit" has to work with the device offline, not just online.
 
 

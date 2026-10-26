@@ -124,6 +124,8 @@ AuditLogEntry (actor_id, action, target_id, ts)
 
 **Key design decision:** `Policy.derived_from` ties every tier's policy object back to one `LicenseAgreement`, so a feature can never be "on" for billing/provisioning purposes without also being on for the consent/disclosure screen the monitored person sees — this is the technical enforcement of the principle already stated in licensing-billing-spec.md §6.
 
+For how to actually test this stack — backend via Podman on a Mac dev host, plus all 4 agent platforms via emulator/simulator/VM — see [testing-strategy-spec.md](./testing-strategy-spec.md).
+
 ## 3.1 Offline-First Requirement (cross-cutting)
 
 Every agent must enforce policy and capture data with **zero connectivity**, queueing locally and syncing automatically once online — the Admin Console only ever reflects synced state, never a live device connection. This adds a local embedded-DB layer (policy cache, consent-flag cache, durable outgoing event queue) to every agent, and a sync protocol (staleness check, idempotent batched upload, timestamp-authoritative ingestion) on the backend side. Full analysis — including the honest list of features that inherently require connectivity (remote lock/wipe/lost-mode/policy-push, since those are server-initiated commands by definition) — is in [offline-sync-spec.md](./offline-sync-spec.md). The component map and data flow below assume this local-first behavior throughout.
