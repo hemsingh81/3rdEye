@@ -2,6 +2,8 @@
 
 Re-aligns [family-tier-spec.md](./family-tier-spec.md), [employer-tier-spec.md](./employer-tier-spec.md), and [fleet-tier-spec.md](./fleet-tier-spec.md) into **one purchase journey**: the buyer picks a license type and feature set at checkout, every feature meters usage, and price is computed dynamically from metered usage against a chosen (and editable) template. No tier is a separate product anymore — they're three **license templates** on one product.
 
+**Wireframes:** a 6-screen mockup of this flow — Intent → Template Selection → Feature Customization (with live price) → License & Consent Config → Checkout → the on-device consent screen the monitored person actually sees — is at [claude.ai/artifact/E9v3yv9N456YUTJ4v21NiR](https://claude.ai/artifact/E9v3yv9N456YUTJ4v21NiR). Treat §2's step-by-step description below as the prose spec for those same six screens.
+
 ## 1. Core Model
 
 - **One agent, one backend, one purchase flow.** "Family," "Employer," and "Fleet" stop being separate products and become **License Templates** — a named, pre-filled bundle of feature toggles + pricing rules that a buyer can accept as-is or customize.
