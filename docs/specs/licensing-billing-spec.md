@@ -8,7 +8,7 @@ Re-aligns [family-tier-spec.md](./family-tier-spec.md), [employer-tier-spec.md](
 
 - **One agent, one backend, one purchase flow.** "Family," "Employer," and "Fleet" stop being separate products and become **License Templates** — a named, pre-filled bundle of feature toggles + pricing rules that a buyer can accept as-is or customize.
 - **Every feature has a meter.** Nothing is flat-rate by default. Screenshots taken, location pings, devices enrolled active-days, DLP alerts evaluated, MDM remote actions issued, dashboard seats active — each is a distinct meter with its own unit price.
-- **Billing = Σ(meter_quantity × unit_price) per billing period**, with optional caps/included-allowances per template so costs stay predictable, not just metered-and-unbounded.
+- **Billing = flat device-day base fee + Σ(meter_quantity × unit_price) per billing period**, with optional caps/included-allowances per template so costs stay predictable, not just metered-and-unbounded. Device enrollment itself is a flat per-device base fee, not a usage meter, priced in the buyer's own currency (INR or USD) per [pricing-model-spec.md](./pricing-model-spec.md) §2–§3.1 — a device going offline per [offline-sync-spec.md](./offline-sync-spec.md) shouldn't look like "less billed usage".
 
 ## 2. Purchase Journey (single flow, replaces three separate onboardings)
 
@@ -24,7 +24,7 @@ Show the matching predefined template(s) (see §3) as a starting point, each wit
 ### Step 3 — Feature Customization
 Grid of every feature across all three pillars (location, screen time, screenshots, DLP alerts, MDM lock/wipe, compliance checks, dashboard seats, etc.), each with:
 - On/off toggle
-- Per-feature meter + unit price shown inline (e.g. "Screenshots: $0.002/capture, estimate based on your interval setting")
+- Per-feature meter + unit price shown inline, in the buyer's own currency — ₹ for an India-billed buyer, $ otherwise (e.g. "Screenshots: ₹0.12/capture" or "Screenshots: $0.0016/capture"), per the geo-based currency model in [pricing-model-spec.md](./pricing-model-spec.md) §2
 - Live running total that recalculates as toggles/sliders change
 - Features can be mixed across pillars freely — e.g. a solo proprietor could buy "Fleet anti-theft" + "Employer DLP alerts" for the same 3 devices with no Family features at all.
 
@@ -53,20 +53,22 @@ Grid of every feature across all three pillars (location, screen time, screensho
 
 Templates are **data, not code** — stored as a `LicenseTemplate` record (feature flags + default meter allowances), so new ones can be added by an internal admin without a release. A buyer customizing a predefined template forks it into their own `LicenseAgreement` without mutating the shared template.
 
-## 4. Meter Catalog (first pass — usage-based pricing units)
+## 4. Meter Catalog
 
 | Feature | Meter unit | Pillar |
 |---|---|---|
-| Device enrollment | active-device-day | All |
+| Device enrollment | active-device-day (flat base fee, not metered usage — see §1) | All |
 | Dashboard seat (Manager/Viewer/Parent login) | active-seat-day | All |
-| Location ping | per ping (or per geofence-check, whichever is cheaper to meter accurately) | Family, Fleet |
-| Screen-time policy evaluation | per device-day (flat small unit, not per-check) | Family |
+| Location ping | per ping | Family, Fleet |
+| Screen-time policy evaluation | bundled into device-day base fee | Family |
 | Content filter evaluation | per 1,000 requests filtered | Family |
 | Screenshot capture | per capture | Employer |
 | DLP alert evaluation | per 1,000 file-events scanned | Employer |
 | MDM remote action (lock/wipe/locate/policy-push) | per action | Fleet |
-| Compliance check run | per device-day | Fleet |
+| Compliance check run | bundled into device-day base fee | Fleet |
 | Lost-mode active period | per day active | Fleet |
+
+**Final unit prices, cost basis, included allowances/caps, and the geo-based currency model** are in [pricing-model-spec.md](./pricing-model-spec.md) §2–§4 — this table only defines *what* is metered; that doc is the source of truth for *how much, in which currency*, so prices aren't duplicated and drifted between the two files. Example full-template bills in both currencies (Family Starter, Workforce Essentials, Fleet Basic at typical usage) are sanity-checked there in §5.
 | Data export | per export | All |
 
 Each meter needs: a unit price, an optional **included allowance** per billing period (so e.g. "first 500 location pings/device/month free"), and an optional **hard cap** (so a runaway misconfiguration, e.g. 1-second screenshot interval, doesn't silently produce a huge bill — cap triggers an alert + throttle, not a surprise invoice).
@@ -90,4 +92,4 @@ Because every feature toggle in the purchase flow maps 1:1 to a feature flag tha
 - Billing cadence: pure postpaid usage-based (invoice after the fact) vs. prepaid credits/wallet model to avoid bill-shock? (Recommend: prepaid credit balance with low-balance alerts + postpaid true-up for enterprise/Fleet buyers only.)
 - Per-device vs. per-org pooled allowances (e.g. is "500 free location pings" per device or pooled across the family)?
 - How does template customization interact with jurisdiction gating from the tier specs — e.g. if a buyer in a mandatory-notice jurisdiction toggles on screenshots mid-cycle, does that require a *new* consent re-acceptance before the meter starts counting? (Recommend: yes — any feature_flag flip requires fresh `ConsentRecord` before provisioning, reusing the existing consent flow.)
-- Currency/localization for unit pricing — v1 single currency or multi-currency from day one?
+- Currency/localization for unit pricing — resolved in [pricing-model-spec.md](./pricing-model-spec.md) §2: a buyer's billing currency is determined by their country (INR for India, USD default elsewhere in v1), not a single global currency. Open follow-up: timing and priority of adding a third currency beyond these two.
