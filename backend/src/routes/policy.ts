@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { pool } from "../db/pool.js";
 import { asyncHandler } from "../asyncHandler.js";
+import { requireAuth } from "../auth/middleware.js";
 
 export const policyRouter = Router();
 
@@ -16,8 +17,12 @@ policyRouter.get("/:deviceId/policy", asyncHandler(async (req, res) => {
   res.json(rows[0]);
 }));
 
-// Parent sets/edits policy from the dashboard's policy editor — family-tier-spec.md §3.4.
-policyRouter.put("/:deviceId/policy", asyncHandler(async (req, res) => {
+// Parent sets/edits policy from the dashboard's policy editor —
+// family-tier-spec.md §3.4. STORY-04: requires auth AND ownership — a
+// device id alone doesn't reveal which family it belongs to, so a valid
+// token for family A must not be able to edit family B's device policy
+// just by guessing/knowing B's device id.
+policyRouter.put("/:deviceId/policy", requireAuth, asyncHandler(async (req, res) => {
   const { daily_limit_minutes, bedtime_start, bedtime_end, content_filter_categories } = req.body ?? {};
   if (typeof daily_limit_minutes !== "number" || daily_limit_minutes < 0) {
     return res.status(400).json({ error: "daily_limit_minutes must be a non-negative number" });
@@ -25,7 +30,9 @@ policyRouter.put("/:deviceId/policy", asyncHandler(async (req, res) => {
   if (!Array.isArray(content_filter_categories) || !content_filter_categories.every((c) => typeof c === "string")) {
     return res.status(400).json({ error: "content_filter_categories must be an array of strings" });
   }
-  const device = await pool.query("SELECT id FROM devices WHERE id = $1", [req.params.deviceId]);
+  // 404, not 403, on an ownership mismatch — this doesn't confirm the
+  // device's existence to someone who isn't its owner.
+  const device = await pool.query("SELECT id FROM devices WHERE id = $1 AND family_id = $2", [req.params.deviceId, req.auth!.family_id]);
   if (device.rows.length === 0) return res.status(404).json({ error: "device not found" });
 
   const { rows } = await pool.query(

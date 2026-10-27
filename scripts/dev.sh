@@ -11,4 +11,7 @@ export DATABASE_URL="${DATABASE_URL:-postgres://3rdeye:3rdeye@localhost:15432/3r
 # a request to :8080 silently hit gvproxy instead of this server); 8097 is
 # deliberately uncommon.
 export PORT="${PORT:-8097}"
+# STORY-04: dev-only, insecure default — matches jwt.ts's own fallback, kept
+# explicit here so dev.sh and test.sh are guaranteed to share one secret.
+export JWT_SECRET="${JWT_SECRET:-dev-only-insecure-secret-do-not-use-in-production}"
 npm run dev

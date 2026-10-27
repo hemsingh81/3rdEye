@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { Router } from "express";
 import { pool } from "../db/pool.js";
 import { asyncHandler } from "../asyncHandler.js";
+import { requireAuth } from "../auth/middleware.js";
 
 export const devicesRouter = Router();
 
@@ -12,18 +13,22 @@ function generateEnrollmentCode(): string {
   return randomBytes(4).toString("hex").toUpperCase();
 }
 
-// Parent generates an enrollment code for a new device — family-tier-spec.md §3.1.
-devicesRouter.post("/", asyncHandler(async (req, res) => {
-  const { family_id, platform } = req.body ?? {};
-  if (typeof family_id !== "string" || !PLATFORMS.includes(platform)) {
-    return res.status(400).json({ error: "family_id and a valid platform are required" });
+// Parent generates an enrollment code for a new device — family-tier-spec.md
+// §3.1. STORY-04: requires auth; the device is created under the
+// *authenticated* family_id, never a client-supplied one — a logged-in
+// parent cannot create a device under a different family by passing a
+// different family_id in the body.
+devicesRouter.post("/", requireAuth, asyncHandler(async (req, res) => {
+  const { platform } = req.body ?? {};
+  if (!PLATFORMS.includes(platform)) {
+    return res.status(400).json({ error: "a valid platform is required" });
   }
   const code = generateEnrollmentCode();
   const { rows } = await pool.query(
     `INSERT INTO devices (family_id, platform, enrollment_code)
      VALUES ($1, $2, $3)
      RETURNING id, family_id, platform, enrollment_code, enrollment_status, created_at`,
-    [family_id, platform, code],
+    [req.auth!.family_id, platform, code],
   );
   res.status(201).json(rows[0]);
 }));
@@ -69,14 +74,17 @@ devicesRouter.post("/:id/consent", asyncHandler(async (req, res) => {
 }));
 
 // Admin console dashboard — device list with last-synced, per offline-sync-spec.md §5.
-devicesRouter.get("/", asyncHandler(async (req, res) => {
-  const { family_id } = req.query;
+// STORY-04: no longer accepts a family_id query param at all — scoped
+// purely to the authenticated token's own family_id, so there is no input
+// that can make this return another family's devices (closes the gap this
+// story exists for, rather than just adding a login screen on top of it).
+devicesRouter.get("/", requireAuth, asyncHandler(async (req, res) => {
   const { rows } = await pool.query(
     `SELECT id, family_id, platform, enrollment_status, last_synced_at, needs_attention, created_at
      FROM devices
-     WHERE $1::uuid IS NULL OR family_id = $1
+     WHERE family_id = $1
      ORDER BY created_at DESC`,
-    [family_id ?? null],
+    [req.auth!.family_id],
   );
   res.json(rows);
 }));

@@ -5,11 +5,13 @@ import { familiesRouter } from "./routes/families.js";
 import { devicesRouter } from "./routes/devices.js";
 import { policyRouter } from "./routes/policy.js";
 import { eventsRouter } from "./routes/events.js";
+import { authRouter } from "./routes/auth.js";
 import { startStaleDeviceSweep } from "./staleDeviceSweep.js";
 
 const app = express();
 app.use(express.json());
 
+app.use("/api/auth", authRouter);
 app.use("/api/families", familiesRouter);
 app.use("/api/devices", devicesRouter);
 app.use("/api/devices", policyRouter);
