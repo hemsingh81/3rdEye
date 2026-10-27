@@ -15,7 +15,7 @@ Scope: third buildable slice of the platform defined in [product-spec.md](./prod
 In scope:
 1. Device enrollment via platform-native programs: **Apple Business Manager / Automated Device Enrollment (DEP)**, **Android Enterprise (zero-touch or QR)**, **Windows Autopilot / Intune-style enrollment**, **Apple MDM profiles for macOS**.
 2. Remote lock, remote wipe, "lost mode" with a custom recovery-contact lock screen.
-3. Compliance policy checks: OS version minimum, disk/device encryption enabled, passcode/biometric enforced, jailbreak/root detection.
+3. Compliance policy checks: OS version minimum, disk/device encryption enabled, passcode/biometric enforced, jailbreak/root detection. An AI-assisted behavior-based safety net on top of these deterministic checks is a separate, deferred enhancement — see [ai-behavior-analysis-spec.md](./ai-behavior-analysis-spec.md) §3; not part of this v1 scope.
 4. Asset inventory: installed apps, OS version, storage free/used, battery health, last check-in time.
 5. Location tracking for company-owned devices — always disclosed via the device-use agreement signed at enrollment, and surfaced via the OS's own location indicator (no suppression).
 6. Fleet dashboard: device list with compliance status (compliant/non-compliant/at-risk), bulk actions (push policy, lock, wipe).

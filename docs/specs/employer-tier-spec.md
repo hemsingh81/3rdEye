@@ -66,6 +66,7 @@ Covered by the unified model in [system-architecture-spec.md](./system-architect
 - Jurisdictions with **mandatory advance written notice** for monitoring (e.g., Connecticut, Delaware, parts of the EU) — org setup wizard should surface a jurisdiction checklist and block relevant features until the admin confirms notice was given, with the `ConsentRecord` as the audit trail.
 - Screenshot/DLP features should default **off** at org creation; admin must explicitly opt in per team — avoids "monitoring maximalism" as a default and keeps the product distinct from stealth tools in both design and legal posture.
 - Data retention: configurable per org, with a sane default (e.g. 90 days for usage data, 30 days for screenshots) and auto-purge.
+- Any future AI-assisted risk classification (ai-behavior-analysis-spec.md) used on employee data needs its own legal review pass before launch here specifically — an automated block/flag affecting an employee's work device is a stronger "automated decision-making" case than the Family-tier equivalent (ai-behavior-analysis-spec.md §6). Not built yet; flagging the requirement now so it isn't missed later.
 
 ## 7. Success Metrics (draft)
 - Consent completion rate at enrollment

@@ -111,6 +111,8 @@ For what actually ships first and in what order, see [mvp-build-plan.md](./mvp-b
 
 For the concrete backend/services/data-flow/tech-stack design underneath all of the above, see [system-architecture-spec.md](./system-architecture-spec.md) — it merges the per-tier "first pass" data models into one unified schema and defines Phase 0's actual deliverables.
 
+A model-based (not just static-list) enhancement to the content filter and app-safety checks above — what it is, and the hard line on what it is not allowed to become — is specced separately in [ai-behavior-analysis-spec.md](./ai-behavior-analysis-spec.md), deferred past Phase 1.
+
 ## 11. Offline-First Requirement
 
 Every agent must enforce policy and capture data with **zero internet connectivity**, syncing automatically once online — the Admin Console only ever reflects synced state. Full analysis of what's genuinely achievable offline per feature (and the honest exceptions — remote lock/wipe/policy-push are server-initiated commands that cannot function without connectivity, same as any MDM vendor) is in [offline-sync-spec.md](./offline-sync-spec.md).

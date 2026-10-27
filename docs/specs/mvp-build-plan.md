@@ -94,3 +94,4 @@ Sequenced last because it's the most infrastructure-heavy (Apple Business Manage
 - Is Android+Windows really the right Phase 1 pair, or does the target early-customer segment skew iOS (e.g. if most pilot families are iPhone households, starting there despite the longer Apple lead time might be worth it)?
 - Should Phase 1's flat beta price be free (growth/data-gathering priority) or paid-but-flat (revenue signal priority)?
 - Minimum pilot customer count/feedback loop needed before exiting Phase 1 into Phase 2?
+- When does AI-assisted risk classification ([ai-behavior-analysis-spec.md](./ai-behavior-analysis-spec.md)) actually earn a phase slot? Not before there's real data on how often Phase 1-3's static blocklist/allowlist misses something — speculatively building a classification pipeline before that evidence exists repeats the mistake the ponytail review already flagged elsewhere in this spec set.

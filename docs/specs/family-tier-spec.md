@@ -14,7 +14,7 @@ Scope: first buildable slice of the platform defined in [product-spec.md](./prod
 In scope:
 1. **Screen time limits & schedules** (daily limit, bedtime schedule, per-app limits) — **enforced as an actual login/session lockout on every platform**, not just a usage report. When a limit or schedule window is hit, the device blocks further use (locks the screen / signs the user out / blocks app launch) using each OS's native enforcement mechanism — see §2.1.
 2. **App control — default-deny, not just notify.** No app installs unless the parent approved it from the dashboard first; an app not on the approved list is **blocked from launching** even if it ends up installed some other way; the parent can **uninstall** a non-approved app remotely where the platform allows it. See §2.1 for exactly what "blocked" vs. "uninstalled" means per platform — these are two different capabilities, not one.
-3. Web content filtering (category blocklist: adult/violence/gambling + custom block/allow list)
+3. Web content filtering (category blocklist: adult/violence/gambling + custom block/allow list). AI-assisted classification for content a static list misses is a separate, deferred enhancement — see [ai-behavior-analysis-spec.md](./ai-behavior-analysis-spec.md) §2; not part of this v1 scope.
 4. Location sharing + geofence alerts ("arrived at school", "left home") — on devices with location capability
 5. Communication metadata (contact added, call/SMS counts, mobile only — no content, see exclusions)
 6. Child dashboard: shows exactly what's being collected, in plain language, live
