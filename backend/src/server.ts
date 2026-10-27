@@ -4,6 +4,7 @@ import express from "express";
 import { familiesRouter } from "./routes/families.js";
 import { devicesRouter } from "./routes/devices.js";
 import { policyRouter } from "./routes/policy.js";
+import { eventsRouter } from "./routes/events.js";
 
 const app = express();
 app.use(express.json());
@@ -11,6 +12,7 @@ app.use(express.json());
 app.use("/api/families", familiesRouter);
 app.use("/api/devices", devicesRouter);
 app.use("/api/devices", policyRouter);
+app.use("/api/devices", eventsRouter);
 
 app.use(express.static(path.join(path.dirname(fileURLToPath(import.meta.url)), "public")));
 

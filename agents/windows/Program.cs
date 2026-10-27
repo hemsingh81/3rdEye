@@ -21,6 +21,7 @@ internal static class Program
         }
 
         var policyClient = new PolicyClient(config.BackendUrl, config.DeviceId, config.LocalDataDir);
+        var eventQueue = new EventQueue(config.BackendUrl, config.DeviceId, config.LocalDataDir);
 
         // family-tier-spec.md §3.2 step 2-3: consent is mandatory and logged
         // before any enforcement or data collection starts.
@@ -30,7 +31,7 @@ internal static class Program
             if (consent.ShowDialog() != DialogResult.OK) return;
         }
 
-        var enforcer = new LockoutEnforcer(policyClient);
+        var enforcer = new LockoutEnforcer(policyClient, eventQueue);
 
         // X1: mandatory, non-hideable agent indicator — a tray icon with no
         // "exit" option a child can casually click away.
@@ -51,8 +52,14 @@ internal static class Program
 
         _ = policyClient.SyncAndGetPolicyAsync(); // pull latest policy on startup; cache serves enforcement either way
 
+        // STORY-01: policy pull first, then flush the event queue — same
+        // order offline-sync-spec.md §4 step 1 specifies (pull before push).
         var syncTimer = new System.Windows.Forms.Timer { Interval = 5 * 60 * 1000 }; // re-sync every 5 min when online
-        syncTimer.Tick += async (_, _) => await policyClient.SyncAndGetPolicyAsync();
+        syncTimer.Tick += async (_, _) =>
+        {
+            await policyClient.SyncAndGetPolicyAsync();
+            await eventQueue.FlushAsync();
+        };
         syncTimer.Start();
 
         var enforceTimer = new System.Windows.Forms.Timer { Interval = 60 * 1000 };

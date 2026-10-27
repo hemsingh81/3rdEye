@@ -61,7 +61,31 @@ async function main() {
   assert(updatedPolicy.version === 2, "policy version increments on edit");
   assert(updatedPolicy.daily_limit_minutes === 60, "edited daily limit saved correctly");
 
-  console.log("All Phase 0 + policy checks passed.");
+  // STORY-01: event queue + sync protocol (offline-sync-spec.md §3-4).
+  const now = new Date();
+  const fiveMinAgo = new Date(now.getTime() - 5 * 60 * 1000);
+  const alertEventId = `test-alert-${Date.now()}`;
+  const postEvents = () =>
+    fetch(`${base}/api/devices/${device.id}/events`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        usage_events: [{ client_event_id: `test-usage-${Date.now()}`, start_ts: fiveMinAgo.toISOString(), end_ts: now.toISOString() }],
+        alert_events: [{ client_event_id: alertEventId, type: "daily_limit_reached", message: "Daily screen time limit reached (90 min).", ts: now.toISOString() }],
+      }),
+    }).then((r) => r.json());
+
+  const firstPost = await postEvents();
+  assert(firstPost.usage_events_inserted === 1, "usage event inserted on first post");
+  assert(firstPost.alert_events_inserted === 1, "alert event inserted on first post");
+
+  const retryPost = await postEvents();
+  assert(retryPost.alert_events_inserted === 0, "retried post with same client_event_id does not double-insert (idempotency)");
+
+  const afterEvents = await fetch(`${base}/api/devices?family_id=${family.id}`).then((r) => r.json());
+  assert(afterEvents[0].last_synced_at !== null, "last_synced_at updated after event flush");
+
+  console.log("All Phase 0 + policy + event checks passed.");
 }
 
 function assert(cond: unknown, label: string) {

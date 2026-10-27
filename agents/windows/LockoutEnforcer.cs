@@ -13,17 +13,20 @@ public class LockoutEnforcer
     private static extern bool LockWorkStation();
 
     private readonly PolicyClient _policyClient;
+    private readonly EventQueue _eventQueue;
     private TimeSpan _usedToday = TimeSpan.Zero;
     private DateTime _lastTickAt = DateTime.Now;
+    private DateTime _sessionStartedAt = DateTime.Now;
     private DateOnly _usageDate = DateOnly.FromDateTime(DateTime.Now);
     private bool _lockedForToday;
     private bool _lockedForBedtime;
 
     public event Action<string>? Locked;
 
-    public LockoutEnforcer(PolicyClient policyClient)
+    public LockoutEnforcer(PolicyClient policyClient, EventQueue eventQueue)
     {
         _policyClient = policyClient;
+        _eventQueue = eventQueue;
     }
 
     // Call this on a ~1-minute timer. Shortcut: usage is measured as
@@ -87,6 +90,13 @@ public class LockoutEnforcer
 
     private void Lock(string reason)
     {
+        // STORY-01: the event this story's acceptance criterion checks for —
+        // queued immediately (durable on disk), flushed whenever the sync
+        // timer next succeeds, regardless of connectivity at lock time.
+        _eventQueue.EnqueueAlert("daily_limit_reached", reason);
+        _eventQueue.EnqueueUsage(_sessionStartedAt, DateTime.Now);
+        _sessionStartedAt = DateTime.Now;
+
         Locked?.Invoke(reason);
         LockWorkStation();
     }

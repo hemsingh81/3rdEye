@@ -32,6 +32,11 @@ Conditioner-equivalent on Windows is Clumsy, per that doc).
   enforcement works with zero connectivity (offline-sync-spec.md §1–§3).
 - `ConsentForm.cs` — the mandatory, un-skippable consent screen
   (family-tier-spec.md §3.2).
+- `EventQueue.cs` — STORY-01's local durable event queue (append-only JSON
+  Lines), flushed to `POST /api/devices/:id/events` on the same 5-minute
+  sync timer as the policy pull. `LockoutEnforcer` enqueues an alert +
+  usage event the moment it locks the device — durable on disk immediately,
+  independent of whether a flush ever succeeds.
 - `LocalConfig.cs` / `DevStandaloneConfig.cs` — local device identity +
   backend URL; the dev-standalone-mode-spec.md config-file path is wrapped
   in `#if DEBUG` so it's compiled out of release builds entirely, per that
@@ -41,8 +46,11 @@ Conditioner-equivalent on Windows is Clumsy, per that doc).
 
 - Usage is tracked as "agent process alive" time, not per-app foreground
   time — correct for F1, not yet enough for Phase 2's per-app limits.
-- No event queue / `UsageEvent` emission yet — offline-sync-spec.md's full
-  local-DB design isn't built here, just the policy cache half of it.
+- `EventQueue.cs` is a JSON Lines file, not SQLite — offline-sync-spec.md
+  §3 describes a fuller embedded-DB design; this is the smallest complete
+  thing for Phase 1's single-device, single-queue case (development-
+  stories.md STORY-01). Upgrade to SQLite once multiple writers or a real
+  query need shows up, not before.
 - No enrollment UI — assumes `config.json` already exists from a Phase 0
   enroll flow run elsewhere; building that screen is separate, smaller work.
 - F2 (content filtering) is in the cached `Policy` shape but nothing in
