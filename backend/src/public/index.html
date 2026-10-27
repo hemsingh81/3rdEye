@@ -66,6 +66,16 @@
     <button class="btn secondary" id="logout-btn">Log out</button>
   </div>
 
+  <!-- STORY-09: a device is enrolled for a child now, not just a family.
+       Full multi-child switching is STORY-14's job — this card only
+       covers "no child exists yet," the minimum needed to keep "+ Add
+       device" working under the new model. -->
+  <div id="first-child-card" class="card hidden">
+    <div style="font-size: 15px; font-weight: 700; margin-bottom: 10px">This family has no child profile yet</div>
+    <div class="field"><label>Child's name</label><input type="text" id="first-child-name"></div>
+    <button class="btn" id="create-first-child-btn">Create child profile</button>
+  </div>
+
   <div class="card">
     <div class="row" style="margin-bottom: 10px">
       <div style="font-size: 15px; font-weight: 700">Devices</div>
@@ -187,8 +197,10 @@
     // showing the previous session's selected device the moment anyone
     // (the same user or, on a shared machine, someone else) logs back in.
     selectedDeviceId = null;
+    cachedFirstChildId = null; // STORY-09: same stale-state hygiene as the panels above — don't leak it into the next login
     document.getElementById("device-detail").classList.add("hidden");
     document.getElementById("new-code-banner").classList.add("hidden");
+    document.getElementById("first-child-card").classList.add("hidden");
     showAuthView();
   });
 
@@ -215,9 +227,37 @@
     });
   }
 
+  // STORY-09: a device is now enrolled for a child, not just for a family.
+  // Full multi-child switching is STORY-14's job — this is the smallest
+  // fix that keeps "+ Add device" working under the new model: use the
+  // family's first child if one exists, otherwise show the inline
+  // first-child-card and let the user retry "+ Add device" after.
+  let cachedFirstChildId = null;
+
+  async function ensureChildProfile() {
+    const children = await api("/api/children").then((r) => r.json());
+    if (children.length > 0) {
+      cachedFirstChildId = children[0].id;
+      document.getElementById("first-child-card").classList.add("hidden");
+      return cachedFirstChildId;
+    }
+    document.getElementById("first-child-card").classList.remove("hidden");
+    return null;
+  }
+
+  document.getElementById("create-first-child-btn").addEventListener("click", async () => {
+    const name = document.getElementById("first-child-name").value.trim();
+    if (!name) return;
+    const child = await api("/api/children", { method: "POST", body: JSON.stringify({ name }) }).then((r) => r.json());
+    cachedFirstChildId = child.id;
+    document.getElementById("first-child-card").classList.add("hidden");
+  });
+
   document.getElementById("add-device-btn").addEventListener("click", async () => {
+    const childProfileId = cachedFirstChildId ?? (await ensureChildProfile());
+    if (!childProfileId) return; // first-child-card is now showing — nothing to enroll yet
     const platform = document.getElementById("new-platform").value;
-    const res = await api("/api/devices", { method: "POST", body: JSON.stringify({ platform }) });
+    const res = await api("/api/devices", { method: "POST", body: JSON.stringify({ platform, child_profile_id: childProfileId }) });
     const device = await res.json();
     const banner = document.getElementById("new-code-banner");
     banner.classList.remove("hidden");

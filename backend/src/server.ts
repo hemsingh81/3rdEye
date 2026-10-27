@@ -7,6 +7,7 @@ import { policyRouter } from "./routes/policy.js";
 import { eventsRouter } from "./routes/events.js";
 import { authRouter } from "./routes/auth.js";
 import { alertsRouter } from "./routes/alerts.js";
+import { childrenRouter } from "./routes/children.js";
 import { startStaleDeviceSweep } from "./staleDeviceSweep.js";
 
 const app = express();
@@ -18,6 +19,7 @@ app.use("/api/devices", devicesRouter);
 app.use("/api/devices", policyRouter);
 app.use("/api/devices", eventsRouter);
 app.use("/api/devices", alertsRouter);
+app.use("/api/children", childrenRouter);
 
 app.use(express.static(path.join(path.dirname(fileURLToPath(import.meta.url)), "public")));
 

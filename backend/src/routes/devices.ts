@@ -15,20 +15,31 @@ function generateEnrollmentCode(): string {
 
 // Parent generates an enrollment code for a new device — family-tier-spec.md
 // §3.1. STORY-04: requires auth; the device is created under the
-// *authenticated* family_id, never a client-supplied one — a logged-in
-// parent cannot create a device under a different family by passing a
-// different family_id in the body.
+// *authenticated* family_id, never a client-supplied one. STORY-09: a
+// device is now enrolled *for* a child, not just for a family — a child
+// with a phone and a laptop assigns both devices to the same
+// child_profile_id, so they end up sharing one Policy (policy.ts resolves
+// through this column, not device_id directly).
 devicesRouter.post("/", requireAuth, asyncHandler(async (req, res) => {
-  const { platform } = req.body ?? {};
+  const { platform, child_profile_id } = req.body ?? {};
   if (!PLATFORMS.includes(platform)) {
     return res.status(400).json({ error: "a valid platform is required" });
   }
+  if (typeof child_profile_id !== "string") {
+    return res.status(400).json({ error: "child_profile_id is required" });
+  }
+  // Ownership check on the child profile, same 404-not-403 pattern as the
+  // policy route — a child_profile_id alone doesn't prove it's this
+  // family's own.
+  const child = await pool.query("SELECT id FROM child_profiles WHERE id = $1 AND family_id = $2", [child_profile_id, req.auth!.family_id]);
+  if (child.rows.length === 0) return res.status(404).json({ error: "child profile not found" });
+
   const code = generateEnrollmentCode();
   const { rows } = await pool.query(
-    `INSERT INTO devices (family_id, platform, enrollment_code)
-     VALUES ($1, $2, $3)
-     RETURNING id, family_id, platform, enrollment_code, enrollment_status, created_at`,
-    [req.auth!.family_id, platform, code],
+    `INSERT INTO devices (family_id, child_profile_id, platform, enrollment_code)
+     VALUES ($1, $2, $3, $4)
+     RETURNING id, family_id, child_profile_id, platform, enrollment_code, enrollment_status, created_at`,
+    [req.auth!.family_id, child_profile_id, platform, code],
   );
   res.status(201).json(rows[0]);
 }));
@@ -80,7 +91,7 @@ devicesRouter.post("/:id/consent", asyncHandler(async (req, res) => {
 // story exists for, rather than just adding a login screen on top of it).
 devicesRouter.get("/", requireAuth, asyncHandler(async (req, res) => {
   const { rows } = await pool.query(
-    `SELECT id, family_id, platform, enrollment_status, last_synced_at, needs_attention, created_at
+    `SELECT id, family_id, child_profile_id, platform, enrollment_status, last_synced_at, needs_attention, created_at
      FROM devices
      WHERE family_id = $1
      ORDER BY created_at DESC`,

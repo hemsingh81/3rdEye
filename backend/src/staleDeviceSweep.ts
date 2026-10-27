@@ -7,10 +7,12 @@ import { pool } from "./db/pool.js";
 // separate cron service. needs_attention clears automatically the next
 // time the device actually syncs (see routes/events.ts, routes/devices.ts).
 export async function runStaleDeviceSweep(): Promise<number> {
+  // STORY-09: policies.device_id no longer exists — resolve the threshold
+  // through the device's child_profile_id instead.
   const { rows } = await pool.query(
     `SELECT d.id
      FROM devices d
-     LEFT JOIN policies p ON p.device_id = d.id
+     LEFT JOIN policies p ON p.child_profile_id = d.child_profile_id
      WHERE d.last_synced_at IS NOT NULL
        AND d.needs_attention = false
        AND d.last_synced_at < now() - (COALESCE(p.stale_device_alert_threshold_hours, 24) || ' hours')::interval`,

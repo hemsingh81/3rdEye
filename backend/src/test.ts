@@ -33,17 +33,37 @@ async function registerAndLogin(name: string, email: string): Promise<{ familyId
   return { familyId: register.family.id, token: login.token };
 }
 
+async function createChild(token: string, name: string): Promise<string> {
+  const child = await authedFetch(token, "/api/children", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ name }),
+  }).then((r) => r.json());
+  assert(child.id, `child profile created (${name})`);
+  return child.id;
+}
+
 async function main() {
   const { familyId, token } = await registerAndLogin("Test Family", `test-${Date.now()}@example.com`);
+  const childId = await createChild(token, "Emma");
+
+  // --- STORY-09: a device with no child_profile_id is rejected outright. ---
+  const noChildRes = await authedFetch(token, "/api/devices", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ platform: "android" }),
+  });
+  assert(noChildRes.status === 400, "enrolling a device with no child_profile_id is rejected");
 
   const device = await authedFetch(token, "/api/devices", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ platform: "android" }),
+    body: JSON.stringify({ platform: "android", child_profile_id: childId }),
   }).then((r) => r.json());
   assert(device.enrollment_code, "device enrollment code issued");
   assert(device.enrollment_status === "pending", "device starts pending");
   assert(device.family_id === familyId, "device created under the authenticated user's own family, not a client-supplied one");
+  assert(device.child_profile_id === childId, "device assigned to the requested child profile");
 
   // Device-trust-boundary endpoints stay unauthenticated — system-architecture-spec.md §2.1.
   const lookup = await fetch(`${base}/api/devices/by-code/${device.enrollment_code}`).then((r) => r.json());
@@ -110,6 +130,40 @@ async function main() {
   assert(updatedPolicy.version === 2, "policy version increments on edit");
   assert(updatedPolicy.daily_limit_minutes === 60, "edited daily limit saved correctly");
 
+  // --- STORY-09 core acceptance: a second device under the SAME child
+  // shares the policy that was just set on the first device. ---
+  const secondDevice = await authedFetch(token, "/api/devices", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ platform: "windows", child_profile_id: childId }),
+  }).then((r) => r.json());
+  const secondDevicePolicy = await fetch(`${base}/api/devices/${secondDevice.id}/policy`).then((r) => r.json());
+  assert(secondDevicePolicy.version === 2, "a second device under the same child sees the same policy version");
+  assert(secondDevicePolicy.daily_limit_minutes === 60, "a second device under the same child sees the same policy values, set from the first device");
+
+  const policyFromSecondDevice = await authedFetch(token, `/api/devices/${secondDevice.id}/policy`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ daily_limit_minutes: 45, content_filter_categories: ["adult", "violence", "gambling"] }),
+  }).then((r) => r.json());
+  assert(policyFromSecondDevice.version === 3, "editing policy from the second device increments the SAME shared row, not a separate one");
+  const firstDevicePolicyAfter = await fetch(`${base}/api/devices/${device.id}/policy`).then((r) => r.json());
+  assert(firstDevicePolicyAfter.daily_limit_minutes === 45, "the first device sees the edit made from the second device — one shared policy, not two drifting ones");
+
+  // --- STORY-09: a device with no child assigned can't have its policy set. ---
+  const orphanDevice = await authedFetch(token, "/api/devices", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ platform: "windows", child_profile_id: childId }),
+  }).then((r) => r.json());
+  await pool.query("UPDATE devices SET child_profile_id = NULL WHERE id = $1", [orphanDevice.id]);
+  const orphanPolicyRes = await authedFetch(token, `/api/devices/${orphanDevice.id}/policy`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ daily_limit_minutes: 30, content_filter_categories: [] }),
+  });
+  assert(orphanPolicyRes.status === 404, "a device with no child profile assigned can't have its policy set (fails cleanly, not a crash)");
+
   // --- STORY-01: event queue + sync protocol (device-channel, unauthenticated) ---
   const now = new Date();
   const fiveMinAgo = new Date(now.getTime() - 5 * 60 * 1000);
@@ -131,8 +185,10 @@ async function main() {
   const retryPost = await postEvents();
   assert(retryPost.alert_events_inserted === 0, "retried post with same client_event_id does not double-insert (idempotency)");
 
+  // STORY-09 created more than one device under this family now — find the
+  // one under test by id rather than assuming it's still list index 0.
   const afterEvents = await authedFetch(token, "/api/devices").then((r) => r.json());
-  assert(afterEvents[0].last_synced_at !== null, "last_synced_at updated after event flush");
+  assert(afterEvents.find((d: any) => d.id === device.id)?.last_synced_at !== null, "last_synced_at updated after event flush");
 
   // --- STORY-05: alerts feed read endpoint ---
   const alertsFeed = await authedFetch(token, `/api/devices/${device.id}/alerts`).then((r) => r.json());
@@ -148,16 +204,16 @@ async function main() {
   assert(firstSweepCount === 1, "sweep flags exactly the one backdated device on first run");
 
   const flaggedList = await authedFetch(token, "/api/devices").then((r) => r.json());
-  assert(flaggedList[0].needs_attention === true, "device shows needs_attention after crossing the threshold");
+  assert(flaggedList.find((d: any) => d.id === device.id)?.needs_attention === true, "device shows needs_attention after crossing the threshold");
 
   const secondSweepCount = await runStaleDeviceSweep();
   assert(secondSweepCount === 0, "sweep does not re-flag (and re-alert) a device already flagged — no spam");
 
   await postEvents(); // a real sync should clear the flag
   const resyncedList = await authedFetch(token, "/api/devices").then((r) => r.json());
-  assert(resyncedList[0].needs_attention === false, "needs_attention clears once the device actually syncs again");
+  assert(resyncedList.find((d: any) => d.id === device.id)?.needs_attention === false, "needs_attention clears once the device actually syncs again");
 
-  console.log("All Phase 0 + policy + event + stale-device + auth checks passed.");
+  console.log("All Phase 0 + policy + event + stale-device + auth + child-profile checks passed.");
   await pool.end();
 }
 
