@@ -64,7 +64,10 @@ eventsRouter.post("/:deviceId/events", asyncHandler(async (req, res) => {
     alertInserted += rowCount ?? 0;
   }
 
-  await pool.query("UPDATE devices SET last_synced_at = now() WHERE id = $1", [req.params.deviceId]);
+  // STORY-03: a real sync clears "needs attention" — the whole point of
+  // the flag is to surface *prolonged silence*, not to stay stuck on once
+  // the device is talking to the backend again.
+  await pool.query("UPDATE devices SET last_synced_at = now(), needs_attention = false WHERE id = $1", [req.params.deviceId]);
 
   res.status(201).json({
     usage_events_received: usageEvents.length,

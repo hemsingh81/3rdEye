@@ -72,7 +72,7 @@ devicesRouter.post("/:id/consent", asyncHandler(async (req, res) => {
 devicesRouter.get("/", asyncHandler(async (req, res) => {
   const { family_id } = req.query;
   const { rows } = await pool.query(
-    `SELECT id, family_id, platform, enrollment_status, last_synced_at, created_at
+    `SELECT id, family_id, platform, enrollment_status, last_synced_at, needs_attention, created_at
      FROM devices
      WHERE $1::uuid IS NULL OR family_id = $1
      ORDER BY created_at DESC`,

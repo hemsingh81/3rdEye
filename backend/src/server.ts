@@ -5,6 +5,7 @@ import { familiesRouter } from "./routes/families.js";
 import { devicesRouter } from "./routes/devices.js";
 import { policyRouter } from "./routes/policy.js";
 import { eventsRouter } from "./routes/events.js";
+import { startStaleDeviceSweep } from "./staleDeviceSweep.js";
 
 const app = express();
 app.use(express.json());
@@ -29,3 +30,8 @@ const port = Number(process.env.PORT ?? 8080);
 app.listen(port, () => {
   console.log(`3rdEye backend listening on :${port}`);
 });
+
+// STORY-03: runs every 15 minutes in production; configurable so a test
+// doesn't have to wait for it — the self-check calls runStaleDeviceSweep()
+// directly instead of waiting on this timer.
+startStaleDeviceSweep(Number(process.env.STALE_SWEEP_INTERVAL_MS ?? 15 * 60 * 1000));

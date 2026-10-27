@@ -1,5 +1,8 @@
 // Self-check for the Phase 0 exit criterion: enroll a device, show + record
 // consent, see it in the device list. Run against a live backend (`npm run dev`).
+import { pool } from "./db/pool.js";
+import { runStaleDeviceSweep } from "./staleDeviceSweep.js";
+
 const base = process.env.BASE_URL ?? "http://localhost:8080";
 
 async function main() {
@@ -85,7 +88,27 @@ async function main() {
   const afterEvents = await fetch(`${base}/api/devices?family_id=${family.id}`).then((r) => r.json());
   assert(afterEvents[0].last_synced_at !== null, "last_synced_at updated after event flush");
 
-  console.log("All Phase 0 + policy + event checks passed.");
+  // STORY-03: stale-device sweep (X9, offline-sync-spec.md §5). Backdate
+  // directly via SQL (that's fine for a self-check) rather than waiting for
+  // real time to pass, and call the sweep function directly rather than
+  // waiting for its production interval.
+  await pool.query("UPDATE devices SET last_synced_at = now() - interval '25 hours' WHERE id = $1", [device.id]);
+
+  const firstSweepCount = await runStaleDeviceSweep();
+  assert(firstSweepCount === 1, "sweep flags exactly the one backdated device on first run");
+
+  const flaggedList = await fetch(`${base}/api/devices?family_id=${family.id}`).then((r) => r.json());
+  assert(flaggedList[0].needs_attention === true, "device shows needs_attention after crossing the threshold");
+
+  const secondSweepCount = await runStaleDeviceSweep();
+  assert(secondSweepCount === 0, "sweep does not re-flag (and re-alert) a device already flagged — no spam");
+
+  await postEvents(); // a real sync should clear the flag
+  const resyncedList = await fetch(`${base}/api/devices?family_id=${family.id}`).then((r) => r.json());
+  assert(resyncedList[0].needs_attention === false, "needs_attention clears once the device actually syncs again");
+
+  console.log("All Phase 0 + policy + event + stale-device checks passed.");
+  await pool.end();
 }
 
 function assert(cond: unknown, label: string) {
