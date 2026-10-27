@@ -1,4 +1,4 @@
-# 3rdEye Android Agent — Phase 1 slice (F1 + F2 + consent)
+# 3rdEye Android Agent — Phase 1 (F1/consent) + Phase 2 F3 (STORY-12)
 
 Covers the same Phase 1 scope as `agents/windows/`, mapped onto Android's
 actual mechanisms per [android-agent-spec.md](../../docs/specs/android-agent-spec.md):
@@ -45,6 +45,24 @@ compiler or IDE.
   callback thread isn't the same thread the sync loop runs on).
 - `LocalConfig.kt` — `EncryptedSharedPreferences`, not a JSON file; the
   platform's own idiom for this, not a literal port.
+- `InstalledAppInventory.kt` — STORY-12's F3 inventory: `PackageManager`
+  (disclosed, standard API, no extra permission walk) gives an exact
+  package-name `app_id` — unlike the Windows agent, there's no registry-
+  DisplayName-vs-process-name heuristic here at all, a genuine platform
+  advantage. Reports the full current list every poll (same "no local
+  diff needed, backend upserts idempotently" call as Windows).
+- `ThirdEyeAccessibilityService.kt`'s `onAccessibilityEvent` now also
+  checks the foreground package against the cached policy's
+  `app_allowlist` before handing off to `LockoutEnforcer` — a blocked app
+  shows the same `LockedActivity` overlay the lockout uses, with a
+  different message. Scoped to packages `InstalledAppInventory` actually
+  reported (never a system/launcher package nobody was asked to approve),
+  excludes the agent's own package explicitly (it would otherwise
+  default-deny itself the moment it comes to the foreground), and
+  debounces repeated overlay launches for the same package — the same
+  respawn-guard reasoning as the Windows `AppBlockEnforcer`'s kill
+  debounce, applied to relaunching an Activity instead of killing a
+  process.
 
 ## Known shortcuts and gaps (named, not silently skipped)
 
@@ -72,6 +90,11 @@ compiler or IDE.
   Windows `ConsentForm.cs` shows a `MessageBox`; the Android version needs
   its own UI wiring for the same case.
 - No automated test exists for any of this — there's no way to run one
-  without the SDK this environment lacks. The acceptance criterion from
-  development-stories.md STORY-07 (lock, go offline, reconnect, confirm
-  the event syncs with its original timestamp) is **unverified**.
+  without the SDK this environment lacks. The acceptance criteria from
+  development-stories.md STORY-07 and STORY-12 are both **unverified**.
+- STORY-12's install-gate half (preventing the install in the first
+  place) is **not built** — only block-from-running. Android's own
+  install-gate is the Play Store's own approval setting (family-tier-
+  spec.md §2.1's Android row), which this agent doesn't touch; a
+  sideloaded APK installs outside any gate here, same category of
+  documented gap as every other platform.

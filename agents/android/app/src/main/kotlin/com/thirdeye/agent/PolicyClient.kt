@@ -7,6 +7,12 @@ import org.json.JSONObject
 import java.io.IOException
 
 // Same shape as the Windows agent's Policy record (agents/windows/PolicyClient.cs).
+// STORY-12: appAllowlist/appControlMode added, same fix already applied on
+// Windows (STORY-11) — the backend's policy.ts now actually returns these
+// (it didn't, until that story's review caught it), flattened to a plain
+// array of app_id strings (Android's app_id is the exact package name, no
+// heuristic name-matching needed the way Windows' registry DisplayName
+// required).
 data class Policy(
     val deviceId: String,
     val version: Int,
@@ -14,13 +20,22 @@ data class Policy(
     val bedtimeStart: String?,
     val bedtimeEnd: String?,
     val contentFilterCategories: List<String>,
+    val appControlMode: String?,
+    val appAllowlist: List<String>,
 ) {
     companion object {
         fun fromJson(json: String): Policy {
             val o = JSONObject(json)
             val categories = mutableListOf<String>()
-            val arr = o.getJSONArray("content_filter_categories")
-            for (i in 0 until arr.length()) categories.add(arr.getString(i))
+            val catArr = o.getJSONArray("content_filter_categories")
+            for (i in 0 until catArr.length()) categories.add(catArr.getString(i))
+
+            val allowlist = mutableListOf<String>()
+            val allowArr = o.optJSONArray("app_allowlist")
+            if (allowArr != null) {
+                for (i in 0 until allowArr.length()) allowlist.add(allowArr.getString(i))
+            }
+
             return Policy(
                 deviceId = o.getString("device_id"),
                 version = o.getInt("version"),
@@ -28,6 +43,8 @@ data class Policy(
                 bedtimeStart = o.optString("bedtime_start", null),
                 bedtimeEnd = o.optString("bedtime_end", null),
                 contentFilterCategories = categories,
+                appControlMode = o.optString("app_control_mode", null),
+                appAllowlist = allowlist,
             )
         }
 
@@ -39,6 +56,8 @@ data class Policy(
             o.put("bedtime_start", p.bedtimeStart)
             o.put("bedtime_end", p.bedtimeEnd)
             o.put("content_filter_categories", p.contentFilterCategories)
+            o.put("app_control_mode", p.appControlMode)
+            o.put("app_allowlist", p.appAllowlist)
             return o.toString()
         }
     }
