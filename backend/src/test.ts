@@ -164,6 +164,60 @@ async function main() {
   });
   assert(orphanPolicyRes.status === 404, "a device with no child profile assigned can't have its policy set (fails cleanly, not a crash)");
 
+  // --- STORY-10: F3 app control backend (inventory + allowlist actions) ---
+  const reportApps = () =>
+    fetch(`${base}/api/devices/${device.id}/installed-apps`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ apps: [{ app_id: "com.example.among-us", install_source: "store" }, { app_id: "com.example.minecraft", install_source: "store" }] }),
+    }).then((r) => r.json());
+
+  const firstReport = await reportApps();
+  assert(firstReport.reported === 2, "agent's installed-app inventory report accepted (device-channel, no auth required)");
+
+  const inventoryBeforeApproval = await authedFetch(token, `/api/devices/${device.id}/installed-apps`).then((r) => r.json());
+  assert(inventoryBeforeApproval.every((a: any) => a.is_approved === false), "a freshly-reported app is not approved by default (default-deny)");
+
+  const approveRes = await authedFetch(token, `/api/devices/${device.id}/policy/apps`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ app_id: "com.example.among-us", approved: true }),
+  }).then((r) => r.json());
+  assert(approveRes.app_allowlist.some((a: any) => a.app_id === "com.example.among-us"), "approving an app adds it to the child's allowlist");
+
+  const inventoryAfterApproval = await authedFetch(token, `/api/devices/${device.id}/installed-apps`).then((r) => r.json());
+  assert(inventoryAfterApproval.find((a: any) => a.app_id === "com.example.among-us")?.is_approved === true, "the approved app now shows as approved in the inventory");
+  assert(inventoryAfterApproval.find((a: any) => a.app_id === "com.example.minecraft")?.is_approved === false, "the OTHER app is unaffected — still not approved");
+
+  // Reuses STORY-09's shared-policy device — approving from one device's
+  // dashboard view approves it for every device under the same child.
+  const secondDeviceInventoryCheck = await authedFetch(token, `/api/devices/${secondDevice.id}/installed-apps`);
+  assert(secondDeviceInventoryCheck.status === 200, "second device under the same child is a valid target for the inventory endpoint too");
+
+  const approveAgainRes = await authedFetch(token, `/api/devices/${device.id}/policy/apps`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ app_id: "com.example.among-us", approved: true }),
+  }).then((r) => r.json());
+  assert(approveAgainRes.app_allowlist.filter((a: any) => a.app_id === "com.example.among-us").length === 1, "re-approving an already-approved app does not duplicate the allowlist entry");
+
+  const blockRes = await authedFetch(token, `/api/devices/${device.id}/policy/apps`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ app_id: "com.example.among-us", approved: false }),
+  }).then((r) => r.json());
+  assert(!blockRes.app_allowlist.some((a: any) => a.app_id === "com.example.among-us"), "blocking an app removes it from the allowlist");
+
+  const appsForbidden = await authedFetch(otherToken, `/api/devices/${device.id}/installed-apps`);
+  assert(appsForbidden.status === 404, "a different family's token cannot read this device's installed-app inventory");
+
+  const blockOrphan = await authedFetch(token, `/api/devices/${orphanDevice.id}/policy/apps`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ app_id: "com.example.anything", approved: false }),
+  });
+  assert(blockOrphan.status === 404, "a device with no child assigned can't have its app-allowlist edited either (same guard as the main policy PUT)");
+
   // --- STORY-01: event queue + sync protocol (device-channel, unauthenticated) ---
   const now = new Date();
   const fiveMinAgo = new Date(now.getTime() - 5 * 60 * 1000);

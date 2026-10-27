@@ -107,6 +107,13 @@
     <button class="btn" id="save-policy-btn">Save policy</button>
     <div style="font-size: 12px; color: #999; margin-top: 8px">Changes here show the child a re-consent screen before they take effect.</div>
 
+    <!-- STORY-10: F3 — default-deny: nothing on this list until approved. -->
+    <div style="font-size: 15px; font-weight: 700; margin-top: 24px; margin-bottom: 10px">Installed apps</div>
+    <table>
+      <thead><tr><th>App</th><th>Status</th><th>Action</th></tr></thead>
+      <tbody id="apps-rows"></tbody>
+    </table>
+
     <div style="font-size: 15px; font-weight: 700; margin-top: 24px; margin-bottom: 10px">Alerts feed</div>
     <table>
       <thead><tr><th>Time</th><th>Type</th><th>Message</th></tr></thead>
@@ -285,6 +292,8 @@
       document.getElementById("policy-categories").value = "adult, violence, gambling";
     }
 
+    await loadInstalledApps(deviceId);
+
     const alerts = await api(`/api/devices/${deviceId}/alerts`).then((r) => r.json());
     const alertsRows = document.getElementById("alerts-rows");
     alertsRows.innerHTML = alerts.length === 0
@@ -292,9 +301,38 @@
       : alerts.map((a) => `<tr><td>${new Date(a.ts).toLocaleString()}</td><td>${a.type}</td><td>${a.message || ""}</td></tr>`).join("");
   }
 
+  // STORY-10: F3 app control — default-deny, so every row starts
+  // "Awaiting approval" until the parent explicitly approves it.
+  async function loadInstalledApps(deviceId) {
+    const apps = await api(`/api/devices/${deviceId}/installed-apps`).then((r) => r.json());
+    const rows = document.getElementById("apps-rows");
+    rows.innerHTML = apps.length === 0
+      ? '<tr><td colspan="3" style="color:#888">No apps reported yet.</td></tr>'
+      : apps.map((a) => `
+        <tr>
+          <td>${a.app_id}</td>
+          <td style="color: ${a.is_approved ? "#0A7A2F" : "#B4530A"}">${a.is_approved ? "Approved" : "Awaiting approval"}</td>
+          <td>
+            <button class="link-btn app-action" data-app-id="${a.app_id}" data-approved="${!a.is_approved}">
+              ${a.is_approved ? "Block" : "Approve"}
+            </button>
+          </td>
+        </tr>`).join("");
+    rows.querySelectorAll(".app-action").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        await api(`/api/devices/${selectedDeviceId}/policy/apps`, {
+          method: "PUT",
+          body: JSON.stringify({ app_id: btn.dataset.appId, approved: btn.dataset.approved === "true" }),
+        });
+        loadInstalledApps(selectedDeviceId);
+      });
+    });
+  }
+
   document.getElementById("close-detail").addEventListener("click", () => {
     selectedDeviceId = null;
     document.getElementById("device-detail").classList.add("hidden");
+    document.getElementById("apps-rows").innerHTML = "";
   });
 
   document.getElementById("save-policy-btn").addEventListener("click", async () => {
