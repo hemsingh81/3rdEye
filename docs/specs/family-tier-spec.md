@@ -64,16 +64,9 @@ Each feature below relies on a **native, OS-sanctioned enforcement API** per pla
 - Alerts feed: bedtime limit hit, geofence entry/exit, new app install, agent disabled.
 - Policy editor: adjust limits/schedules/filters per child or per device.
 
-## 4. Data Model (first pass)
+## 4. Data Model
 
-- `Family` (id, parent_user_ids[])
-- `ChildProfile` (id, family_id, name, age_band, device_ids[])
-- `Device` (id, child_profile_id, platform, enrollment_status, agent_version, last_seen)
-- `ConsentRecord` (id, device_id, policy_version, accepted_at, accepted_by)
-- `Policy` (id, child_profile_id, screen_time_rules{daily_limit, bedtime_window, per_app_limits, lockout_action}, content_filter_rules, geofence_rules)
-- `UsageEvent` (device_id, app_id, category, start_ts, end_ts)
-- `LocationEvent` (device_id, lat, lon, geofence_id_if_any, ts)
-- `AlertEvent` (device_id, type, payload, ts, acknowledged)
+Covered by the unified model in [system-architecture-spec.md](./system-architecture-spec.md) §3 (`Family`, `ChildProfile`, `Device`, `ConsentRecord`, `Policy`, event tables). This tier contributes `screen_time_rules.lockout_action` and the geofence/location event shapes.
 
 ## 5. Platform Notes
 

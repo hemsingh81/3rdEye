@@ -1,5 +1,7 @@
 # 3rdEye — Unified Purchase Journey, Licensing & Usage-Based Billing (Draft v0.1)
 
+> **Metering/billing engine (§3–§5) is deferred until [mvp-build-plan.md](./mvp-build-plan.md) Phase 4.** Phase 1–3 run on a flat beta price per device while still emitting `UsageMeterEvent` records for later use. The purchase-journey UX (§2) is the near-term target; the metered-pricing machinery is not — don't build the metering engine before Phase 4 starts.
+
 Re-aligns [family-tier-spec.md](./family-tier-spec.md), [employer-tier-spec.md](./employer-tier-spec.md), and [fleet-tier-spec.md](./fleet-tier-spec.md) into **one purchase journey**: the buyer picks a license type and feature set at checkout, every feature meters usage, and price is computed dynamically from metered usage against a chosen (and editable) template. No tier is a separate product anymore — they're three **license templates** on one product.
 
 **Wireframes:** a 6-screen mockup of this flow — Intent → Template Selection → Feature Customization (with live price) → License & Consent Config → Checkout → the on-device consent screen the monitored person actually sees — is at [claude.ai/artifact/E9v3yv9N456YUTJ4v21NiR](https://claude.ai/artifact/E9v3yv9N456YUTJ4v21NiR). Treat §2's step-by-step description below as the prose spec for those same six screens.

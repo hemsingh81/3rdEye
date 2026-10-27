@@ -1,5 +1,7 @@
 # 3rdEye — Pricing Model: Cost Basis, Final Meter Rates & Multi-Currency Billing (Draft v0.3)
 
+> **Deferred until [mvp-build-plan.md](./mvp-build-plan.md) Phase 4** ("Employer Tier + Usage-Based Billing Engine"). Phase 1 ships at a flat beta price per device — this doc's metering/currency machinery isn't needed until metered billing actually goes live. Kept here, intentionally thin on implementation, as the target design once that phase starts; don't build against it yet.
+
 Scope: replaces the placeholder unit prices scattered across [licensing-billing-spec.md](./licensing-billing-spec.md) §4 with actual cost-modeled numbers, and defines a **geo-based currency model**: a buyer's billing currency is determined by their country, not hardcoded to one currency — this is what lets the product serve the India market (where the business is based) and a global market from the same pricing engine, instead of picking one and excluding the other.
 
 ## 1. Methodology

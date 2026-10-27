@@ -2,6 +2,8 @@
 
 Scope: second buildable slice of the platform defined in [product-spec.md](./product-spec.md). Disclosed workforce monitoring — employee always knows the agent is present and what it reports.
 
+> **Deferred until [mvp-build-plan.md](./mvp-build-plan.md) Phase 4.** Phase 1–3 build Family tier only; nothing here should be built before then.
+
 ## 1. Users
 
 - **Super Admin** — org owner, billing, policy, full data access/export/delete.
@@ -49,18 +51,9 @@ Explicitly out of scope for v1:
 - Policy editor: category mapping, screenshot cadence, DLP rule patterns, work-hours schedule.
 - Export/report generation (CSV/PDF) — gated to Super Admin, logged for audit.
 
-## 4. Data Model (first pass, extends Family-tier model)
+## 4. Data Model
 
-- `Org` (id, super_admin_ids[], jurisdiction_settings)
-- `Team` (id, org_id, manager_ids[])
-- `Employee` (id, org_id, team_id, device_ids[])
-- `Device` (id, employee_id, platform, enrollment_status, work_profile_type, agent_version, last_seen) — shared shape with Family-tier `Device`
-- `ConsentRecord` — shared model with Family tier (device_id, policy_version, accepted_at, accepted_by)
-- `Policy` (id, org_id or team_id, category_map, screenshot_enabled, screenshot_interval, dlp_rules, work_hours)
-- `UsageEvent` (device_id, app_id, category, start_ts, end_ts) — shared shape with Family tier
-- `ScreenshotEvent` (device_id, ts, thumbnail_ref, visible_to_employee: bool)
-- `DlpAlertEvent` (device_id, file_pattern_matched, destination_type, ts)
-- `AuditLogEntry` (actor_id, action, target_id, ts) — covers exports, policy changes, data deletion
+Covered by the unified model in [system-architecture-spec.md](./system-architecture-spec.md) §3 (`Org`, `Team`, `Employee`, `Device`, `ConsentRecord`, `Policy`, `AuditLogEntry`). This tier contributes `ScreenshotEvent` and `DlpAlertEvent`.
 
 ## 5. Platform Notes
 

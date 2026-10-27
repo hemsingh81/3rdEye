@@ -2,6 +2,8 @@
 
 Scope: third buildable slice of the platform defined in [product-spec.md](./product-spec.md). MDM and anti-theft management for company-owned device fleets. This tier also underpins company-owned device enrollment referenced by the Employer tier.
 
+> **Deferred until [mvp-build-plan.md](./mvp-build-plan.md) Phase 5.** Nothing here should be built before Phase 5 starts.
+
 ## 1. Users
 
 - **IT Admin (Super Admin)** — enrolls devices, sets compliance policy, remote lock/wipe, full fleet visibility.
@@ -45,15 +47,9 @@ Explicitly out of scope for v1:
 - Bulk policy push (e.g., force OS update, revoke app).
 - Audit log of every lock/wipe/location-query action (who did it, when) — same `AuditLogEntry` shape as Employer tier.
 
-## 4. Data Model (first pass, extends shared shapes)
+## 4. Data Model
 
-- `Org` — shared with Employer tier
-- `DeviceFleetPolicy` (id, org_id, name, min_os_version, require_encryption, require_passcode, check_in_interval)
-- `Device` — shared shape (id, owner_employee_id_nullable, platform, enrollment_status, mdm_profile_id, compliance_status, last_check_in) — same table as Employer/Family tiers, differentiated by `enrollment_type` (family / employer_workprofile / fleet_owned)
-- `ConsentRecord` — shared (device use agreement acceptance)
-- `ComplianceCheckEvent` (device_id, check_type, result, ts)
-- `LostModeEvent` (device_id, triggered_by, ts, recovery_contact, resolved_at)
-- `RemoteActionLog` (device_id, actor_id, action_type [lock/wipe/locate/policy_push], ts) — rolls into shared `AuditLogEntry`
+Covered by the unified model in [system-architecture-spec.md](./system-architecture-spec.md) §3 (`Org`, `Device` with `enrollment_type`, `ConsentRecord`, `AuditLogEntry`). This tier contributes `DeviceFleetPolicy`, `ComplianceCheckEvent`, and `LostModeEvent`.
 
 ## 5. Platform Notes
 
