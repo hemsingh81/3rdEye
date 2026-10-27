@@ -1,0 +1,38 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>3rdEye Admin Console (Phase 0)</title>
+<style>
+  body { font-family: -apple-system, sans-serif; max-width: 700px; margin: 40px auto; color: #222; }
+  table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+  th, td { text-align: left; padding: 8px; border-bottom: 1px solid #ddd; font-size: 14px; }
+  .status-enrolled { color: #0a7a2f; }
+  .status-pending { color: #a66a00; }
+</style>
+</head>
+<body>
+  <h2>3rdEye — Devices</h2>
+  <p>Phase 0 shell: no policy editor yet, per mvp-build-plan.md §2 exit criterion.</p>
+  <table>
+    <thead><tr><th>Platform</th><th>Status</th><th>Last synced</th><th>Enrolled</th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+  <script>
+    fetch("/api/devices").then((r) => r.json()).then((devices) => {
+      const rows = document.getElementById("rows");
+      if (devices.length === 0) {
+        rows.innerHTML = '<tr><td colspan="4">No devices enrolled yet.</td></tr>';
+        return;
+      }
+      rows.innerHTML = devices.map((d) => `
+        <tr>
+          <td>${d.platform}</td>
+          <td class="status-${d.enrollment_status}">${d.enrollment_status}</td>
+          <td>${d.last_synced_at ? new Date(d.last_synced_at).toLocaleString() : "never"}</td>
+          <td>${new Date(d.created_at).toLocaleString()}</td>
+        </tr>`).join("");
+    });
+  </script>
+</body>
+</html>
