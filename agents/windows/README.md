@@ -1,10 +1,9 @@
-# 3rdEye Windows Agent — Phase 1 slice (F1 + F2 + consent only)
+# 3rdEye Windows Agent — Phase 1 slice (F1 + F2 + consent)
 
 Covers exactly mvp-build-plan.md Phase 1's scope: a visible tray agent that
 shows the mandatory consent screen once, then enforces screen-time/bedtime
-lockout (F1) from a locally-cached `Policy` — no per-app limits, no content
-filtering enforcement yet (F2 is specced but not wired to a real filter
-driver in this slice), no app-install control (F3, Phase 2).
+lockout (F1) and local DNS-based content filtering (F2) from a locally-cached
+`Policy` — no per-app limits, no app-install control (F3, Phase 2).
 
 **This was written on a Mac and has never been built or run.** There's no
 Windows/.NET toolchain in this environment to compile or test it — per
@@ -46,6 +45,14 @@ Conditioner-equivalent on Windows is Clumsy, per that doc).
   backend URL; the dev-standalone-mode-spec.md config-file path is wrapped
   in `#if DEBUG` so it's compiled out of release builds entirely, per that
   spec's "one hard rule."
+- `DnsFilter.cs` — STORY-06's F2 enforcement: a local UDP DNS proxy that
+  refuses resolution (NXDOMAIN) for a domain matching the cached policy's
+  blocked categories, forwarding everything else to a real upstream
+  resolver untouched. implementation-plan.md §1.6 has the full reasoning
+  for choosing this over a TLS-intercepting proxy or a WFP/SNI driver.
+- `RegistryPolicy.cs` — the DoH-disabling mitigation that ships *with*
+  `DnsFilter.cs`, not after it: pushes the `DnsOverHttpsMode` policy to
+  Chrome/Edge so their own encrypted DNS doesn't silently bypass the filter.
 
 ## Known shortcuts in this slice (upgrade later, don't build around now)
 
@@ -56,7 +63,11 @@ Conditioner-equivalent on Windows is Clumsy, per that doc).
   thing for Phase 1's single-device, single-queue case (development-
   stories.md STORY-01). Upgrade to SQLite once multiple writers or a real
   query need shows up, not before.
-- F2 (content filtering) is in the cached `Policy` shape but nothing in
-  this code enforces it yet — that needs a Network Extension-equivalent
-  (a WFP callout driver or proxy), which is real platform work, not a
-  shortcut to skip quietly.
+- `DnsFilter.cs`'s category→domain list is a small embedded sample, not a
+  real licensed categorization feed — proves the mechanism, not production
+  coverage. Needs the adapter's DNS pointed at 127.0.0.1 and the filter
+  running with sufficient privilege to bind port 53 — both are an
+  install-time `netsh`/elevation step this class doesn't perform on the
+  system itself. The DoH-disabling mitigation only covers Chrome/Edge;
+  Firefox needs a separate `policies.json` mechanism, not implemented yet
+  — a real, disclosed gap, named here rather than silently uncovered.

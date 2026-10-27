@@ -49,6 +49,16 @@ internal static class Program
 
         enforcer.Locked += reason => trayIcon.ShowBalloonTip(5000, "3rdEye", reason, ToolTipIcon.Info);
 
+        // STORY-06: F2 content filtering — local DNS-based filtering, per
+        // implementation-plan.md §1.6's decision. Apply the DoH-disabling
+        // mitigation once at startup (enrollment-time is the more natural
+        // point, but doing it here too covers a device enrolled before this
+        // story existed), then start the filter itself.
+        RegistryPolicy.DisableDnsOverHttps();
+        using var dnsFilter = new DnsFilter(policyClient, eventQueue);
+        dnsFilter.Blocked += domain => trayIcon.ShowBalloonTip(5000, "3rdEye", $"Blocked: {domain}", ToolTipIcon.Info);
+        dnsFilter.Start();
+
         _ = policyClient.SyncAndGetPolicyAsync(); // pull latest policy on startup; cache serves enforcement either way
 
         // STORY-01: policy pull first, then flush the event queue — same

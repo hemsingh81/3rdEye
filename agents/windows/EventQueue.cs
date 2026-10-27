@@ -26,6 +26,16 @@ public class EventQueue
     private readonly HttpClient _http;
     private readonly string _deviceId;
 
+    // Review catch (STORY-06): DnsFilter's listener loop runs on thread-pool
+    // threads, not the WinForms UI thread the way LockoutEnforcer's and the
+    // sync timer's calls do — EnqueueAlert from a DNS block can now race
+    // with a lockout event's EnqueueAlert/EnqueueUsage, or with FlushAsync's
+    // rename-and-read, in ways that were previously impossible when every
+    // caller was UI-thread-serialized. A SemaphoreSlim (not a plain `lock`,
+    // since FlushAsync needs to hold it across an `await`) serializes every
+    // file operation this class does.
+    private readonly SemaphoreSlim _lock = new(1, 1);
+
     public EventQueue(string backendUrl, string deviceId, string localDataDir)
     {
         Directory.CreateDirectory(localDataDir);
@@ -49,7 +59,15 @@ public class EventQueue
 
     private void Append(QueuedEvent evt)
     {
-        File.AppendAllText(_queuePath, JsonSerializer.Serialize(evt) + "\n");
+        _lock.Wait();
+        try
+        {
+            File.AppendAllText(_queuePath, JsonSerializer.Serialize(evt) + "\n");
+        }
+        finally
+        {
+            _lock.Release();
+        }
     }
 
     // Flushes the whole queue in one batch. On success, clears only what was
@@ -67,15 +85,27 @@ public class EventQueue
     // nothing written during the network call is in the snapshot we delete.
     public async Task<bool> FlushAsync()
     {
-        if (!File.Exists(_queuePath)) return true;
         var snapshotPath = _queuePath + ".flushing";
+
+        // Only the move-out needs the lock — it's the step that would race
+        // with a concurrent Append. Once moved, the snapshot file is ours
+        // alone; nothing else ever touches ".flushing". The lock is NOT
+        // held across the HTTP await below, so a DNS-block event firing
+        // mid-request isn't blocked for the duration of a slow/offline
+        // network call.
+        await _lock.WaitAsync();
         try
         {
+            if (!File.Exists(_queuePath)) return true;
             File.Move(_queuePath, snapshotPath, overwrite: true);
         }
         catch (IOException)
         {
             return false; // another flush already in progress — try again next sync
+        }
+        finally
+        {
+            _lock.Release();
         }
 
         var lines = await File.ReadAllLinesAsync(snapshotPath);
@@ -126,12 +156,22 @@ public class EventQueue
     }
 
     // Puts a failed snapshot's events back ahead of anything enqueued during
-    // the flush attempt, preserving original order.
+    // the flush attempt, preserving original order. Locked — this writes to
+    // the live queue path, which a concurrent Append (e.g. DnsFilter, on its
+    // own thread) could be writing to at the same moment.
     private void RequeueSnapshot(string snapshotPath)
     {
-        var snapshotContent = File.ReadAllText(snapshotPath);
-        var currentContent = File.Exists(_queuePath) ? File.ReadAllText(_queuePath) : "";
-        File.WriteAllText(_queuePath, snapshotContent + currentContent);
-        File.Delete(snapshotPath);
+        _lock.Wait();
+        try
+        {
+            var snapshotContent = File.ReadAllText(snapshotPath);
+            var currentContent = File.Exists(_queuePath) ? File.ReadAllText(_queuePath) : "";
+            File.WriteAllText(_queuePath, snapshotContent + currentContent);
+            File.Delete(snapshotPath);
+        }
+        finally
+        {
+            _lock.Release();
+        }
     }
 }
