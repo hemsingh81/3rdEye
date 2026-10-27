@@ -61,6 +61,38 @@
       </table>
     </div>
     <div class="card">
+      <div style="font-size: 15px; font-weight: 700; margin-bottom: 10px">Installed apps — default-deny: nothing installs without approval</div>
+      <table>
+        <tr><th>App</th><th>Device</th><th>Status</th><th>Action</th></tr>
+        <tr data-app-row="among-us">
+          <td>Among Us</td><td>Jack's PC</td>
+          <td><span class="app-status" style="color: #B4530A">Awaiting approval</span></td>
+          <td class="app-actions">
+            <button class="app-btn" data-action="approve" data-app-row="among-us" style="padding: 5px 10px; border-radius: 6px; border: 1px solid #0A7A2F; background: white; color: #0A7A2F; font-size: 12px">Approve</button>
+            <button class="app-btn" data-action="block" data-app-row="among-us" style="padding: 5px 10px; border-radius: 6px; border: 1px solid #B4530A; background: white; color: #B4530A; font-size: 12px">Block</button>
+          </td>
+        </tr>
+        <tr data-app-row="tiktok">
+          <td>TikTok</td><td>Emma's iPad</td>
+          <td><span class="app-status" style="color: #B4530A">Blocked — not approved</span></td>
+          <td class="app-actions"><span style="font-size: 12px; color: #999">Blocked locally, no connectivity needed</span></td>
+        </tr>
+        <tr data-app-row="sideload">
+          <td>coolmathgames.exe (sideloaded)</td><td>Jack's PC</td>
+          <td><span class="app-status" style="color: #B4530A">Installed, not approved</span></td>
+          <td class="app-actions">
+            <button class="app-btn" data-action="block" data-app-row="sideload" style="padding: 5px 10px; border-radius: 6px; border: 1px solid #B4530A; background: white; color: #B4530A; font-size: 12px">Block</button>
+            <span style="font-size: 11px; color: #999" title="Non-Store Windows apps need Fleet-tier MDM supervision to uninstall remotely">Uninstall needs supervised device</span>
+          </td>
+        </tr>
+        <tr data-app-row="minecraft">
+          <td>Minecraft</td><td>Emma's iPad</td>
+          <td><span class="app-status" style="color: #0A7A2F">Approved</span></td>
+          <td class="app-actions">—</td>
+        </tr>
+      </table>
+    </div>
+    <div class="card">
       <div style="font-size: 15px; font-weight: 700; margin-bottom: 10px">Devices</div>
       <table>
         <tr><th>Child</th><th>Platform</th><th>Status</th><th>Last synced</th></tr>
@@ -142,6 +174,25 @@
       const tab = btn.dataset.tab;
       document.querySelectorAll('.tabs button').forEach((b) => b.classList.toggle('active', b === btn));
       document.querySelectorAll('.panel').forEach((p) => p.classList.toggle('active', p.dataset.panel === tab));
+    });
+  });
+
+  document.querySelectorAll('.app-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const row = document.querySelector(`tr[data-app-row="${btn.dataset.appRow}"]`);
+      const status = row.querySelector('.app-status');
+      const actions = row.querySelector('.app-actions');
+      if (btn.dataset.action === 'approve') {
+        status.textContent = 'Approved';
+        status.style.color = '#0A7A2F';
+        actions.textContent = '—';
+      } else {
+        status.textContent = 'Blocked — not approved';
+        status.style.color = '#B4530A';
+        actions.textContent = 'Blocked locally, no connectivity needed';
+        actions.style.fontSize = '12px';
+        actions.style.color = '#999';
+      }
     });
   });
 </script>
