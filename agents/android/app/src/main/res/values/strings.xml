@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">3rdEye</string>
+    <string name="accessibility_service_description">3rdEye uses this to know which app is in front, so it can enforce the screen-time limit your parent set. It never reads what\'s on the screen.</string>
+</resources>
