@@ -53,6 +53,7 @@ Single source listing every feature across all three pillars, pulled from [famil
 | X6 | Audit log of admin/manager/IT actions (policy changes, exports, remote actions) | Employer, Fleet |
 | X7 | Usage-based billing engine: meters, allowances, caps, invoicing | All pillars (see licensing-billing-spec.md) |
 | X8 | License template system (predefined + custom, feature-flag driven) | All pillars |
+| X9 | Stale-device alert: flags + notifies when a device hasn't synced past a configurable threshold (default 24h) | All pillars — see offline-sync-spec.md §5 |
 
 ## 5. Explicitly Excluded (by design, all pillars)
 
@@ -68,7 +69,7 @@ Single source listing every feature across all three pillars, pulled from [famil
 - Family: 7 features (F1–F7)
 - Employer: 8 features (E1–E8)
 - Fleet: 9 features (M1–M9)
-- Cross-cutting infrastructure: 8 items (X1–X8, mostly non-billable/shared)
+- Cross-cutting infrastructure: 9 items (X1–X9, mostly non-billable/shared)
 - **Total billable/toggleable features: 24**
 
 ## 7. Cross-Platform Coverage Summary

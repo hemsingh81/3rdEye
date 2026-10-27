@@ -42,7 +42,7 @@ Explicitly out of scope for v1:
 - If device reports non-compliant (e.g. encryption disabled), user sees an in-app prompt to fix it before continuing — not silent enforcement.
 
 ### 3.4 Daily Use (IT Admin)
-- Fleet dashboard: compliance status per device, last check-in, pending actions.
+- Fleet dashboard: compliance status per device, last check-in, pending actions. A device overdue on check-in past the configured threshold gets the same "needs attention" treatment as Family tier (X9, offline-sync-spec.md §5) — on a fleet, a silent device is itself a security signal worth surfacing, not just a stale timestamp.
 - Lost/stolen device flow: Admin flags device lost → triggers lost-mode lock screen (custom message + recovery contact) → location polling increases in frequency → option to remote wipe if unrecoverable.
 - Bulk policy push (e.g., force OS update, block/uninstall an app) — same default-deny app-control mechanism as family-tier-spec.md §2 (F3), just at fleet scale: a device enrolled here gets full block + remote-uninstall support on every platform, since MDM enrollment is exactly what Family tier's non-Android platforms are missing.
 - Audit log of every lock/wipe/location-query action (who did it, when) — same `AuditLogEntry` shape as Employer tier.

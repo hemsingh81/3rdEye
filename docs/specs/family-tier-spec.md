@@ -66,7 +66,8 @@ Each feature below relies on a **native, OS-sanctioned enforcement API** per pla
 ### 3.4 Daily Use (Parent)
 - Dashboard: per-child device list, today's screen time vs. limit, last known location + geofence events, pending app-install approvals, content-filter block log (what got blocked, not full browsing history), and an **installed-app inventory** per device (what's actually on it, approved or not).
 - An app the parent never approved shows a **"Block"** action (stops it launching, works even if the device is offline once the policy syncs) and, where the platform supports it (Android always; iOS/macOS/Windows only on a supervised/MDM-enrolled device), an **"Uninstall"** action.
-- Alerts feed: bedtime limit hit, geofence entry/exit, new app install request, unapproved app detected, agent disabled.
+- A device that hasn't synced in 24h (configurable) shows a third status, **"Needs attention,"** alongside Active/Locked — see offline-sync-spec.md §5 (X9). This can't tell the parent *why* it went quiet, only that it did.
+- Alerts feed: bedtime limit hit, geofence entry/exit, new app install request, unapproved app detected, agent disabled, device needs attention.
 - Policy editor: adjust limits/schedules/filters per child or per device.
 
 ## 4. Data Model
