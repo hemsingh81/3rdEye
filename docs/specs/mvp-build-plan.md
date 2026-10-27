@@ -2,6 +2,8 @@
 
 Scope: decides what actually ships first, in what order, out of the full vision in [product-spec.md](./product-spec.md), the three tier specs, [feature-list.md](./feature-list.md) (24 features), and [licensing-billing-spec.md](./licensing-billing-spec.md). Everything specced so far is the target state; this doc is the path to it.
 
+For the concrete, engineering-task-level breakdown of what to build next (grounded in what's actually in the repo today, not just the target state), see [implementation-plan.md](./implementation-plan.md).
+
 ## 1. Sequencing Principles
 
 1. **One pillar, one platform pair, before going wide.** Building all 3 pillars × 4 platforms × full billing engine simultaneously is how specs rot. Prove the hardest part of the model (visible-agent + consent + real enforcement) on the smallest real slice first.
