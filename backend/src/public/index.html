@@ -66,14 +66,23 @@
     <button class="btn secondary" id="logout-btn">Log out</button>
   </div>
 
-  <!-- STORY-09: a device is enrolled for a child now, not just a family.
-       Full multi-child switching is STORY-14's job — this card only
-       covers "no child exists yet," the minimum needed to keep "+ Add
-       device" working under the new model. -->
-  <div id="first-child-card" class="card hidden">
-    <div style="font-size: 15px; font-weight: 700; margin-bottom: 10px">This family has no child profile yet</div>
-    <div class="field"><label>Child's name</label><input type="text" id="first-child-name"></div>
-    <button class="btn" id="create-first-child-btn">Create child profile</button>
+  <!-- STORY-14: F7 — a real child switcher, replacing STORY-09's
+       single-first-child workaround. The switcher drives which child's
+       devices/policy the rest of the dashboard shows; "+ Add child" is
+       always available, not just when the family has zero children. -->
+  <div class="card">
+    <div class="row">
+      <div class="row" style="gap: 8px">
+        <div style="font-size: 15px; font-weight: 700">Child:</div>
+        <select id="child-select"></select>
+      </div>
+      <button class="btn secondary" id="add-child-btn">+ Add child</button>
+    </div>
+    <div id="add-child-form" class="hidden" style="margin-top: 14px">
+      <div class="field"><label>Child's name</label><input type="text" id="new-child-name"></div>
+      <button class="btn" id="create-child-btn">Create child profile</button>
+      <button class="btn secondary" id="cancel-child-btn">Cancel</button>
+    </div>
   </div>
 
   <div class="card">
@@ -103,6 +112,8 @@
     <div class="field"><label>Bedtime start (HH:MM)</label><input type="text" id="policy-bedtime-start" placeholder="21:00"></div>
     <div class="field"><label>Bedtime end (HH:MM)</label><input type="text" id="policy-bedtime-end" placeholder="07:00"></div>
     <div class="field"><label>Content filter categories (comma-separated)</label><input type="text" id="policy-categories" placeholder="adult, violence, gambling"></div>
+    <div class="field"><label>Custom blocked domains (comma-separated)</label><input type="text" id="policy-custom-blocked" placeholder="some-site.example"></div>
+    <div class="field"><label>Custom allowed domains (comma-separated, overrides a category block)</label><input type="text" id="policy-custom-allowed" placeholder="school-site.example"></div>
     <div class="error" id="policy-error"></div>
     <button class="btn" id="save-policy-btn">Save policy</button>
     <div style="font-size: 12px; color: #999; margin-top: 8px">Changes here show the child a re-consent screen before they take effect.</div>
@@ -147,7 +158,7 @@
   function showDashboardView() {
     document.getElementById("auth-view").classList.add("hidden");
     document.getElementById("dashboard-view").classList.remove("hidden");
-    loadDevices();
+    loadChildren();
   }
 
   // --- Auth ---
@@ -204,19 +215,73 @@
     // showing the previous session's selected device the moment anyone
     // (the same user or, on a shared machine, someone else) logs back in.
     selectedDeviceId = null;
-    cachedFirstChildId = null; // STORY-09: same stale-state hygiene as the panels above — don't leak it into the next login
+    selectedChildId = null;
+    allChildren = [];
+    allDevices = [];
     document.getElementById("device-detail").classList.add("hidden");
     document.getElementById("new-code-banner").classList.add("hidden");
-    document.getElementById("first-child-card").classList.add("hidden");
+    document.getElementById("add-child-form").classList.add("hidden");
     showAuthView();
+  });
+
+  // --- Children (STORY-14: F7 multi-child switcher) ---
+  // GET /api/devices already returns the whole family's devices across
+  // every child (STORY-04) — the per-child view is a client-side filter
+  // on that one list, not a second, narrower backend endpoint.
+  let allChildren = [];
+  let allDevices = [];
+  let selectedChildId = null;
+
+  async function loadChildren() {
+    allChildren = await api("/api/children").then((r) => r.json());
+    const select = document.getElementById("child-select");
+    if (allChildren.length === 0) {
+      select.innerHTML = "";
+      selectedChildId = null;
+      document.getElementById("add-child-form").classList.remove("hidden");
+      document.getElementById("device-list").innerHTML = "<p style='color:#888;font-size:13px'>Add a child profile to start enrolling devices.</p>";
+      return;
+    }
+    if (!selectedChildId || !allChildren.some((c) => c.id === selectedChildId)) {
+      selectedChildId = allChildren[0].id;
+    }
+    select.innerHTML = allChildren.map((c) => `<option value="${c.id}" ${c.id === selectedChildId ? "selected" : ""}>${c.name}</option>`).join("");
+    await loadDevices();
+  }
+
+  document.getElementById("child-select").addEventListener("change", (e) => {
+    selectedChildId = e.target.value;
+    renderDevices();
+  });
+
+  document.getElementById("add-child-btn").addEventListener("click", () => {
+    document.getElementById("add-child-form").classList.remove("hidden");
+  });
+  document.getElementById("cancel-child-btn").addEventListener("click", () => {
+    document.getElementById("add-child-form").classList.add("hidden");
+  });
+
+  document.getElementById("create-child-btn").addEventListener("click", async () => {
+    const name = document.getElementById("new-child-name").value.trim();
+    if (!name) return;
+    const child = await api("/api/children", { method: "POST", body: JSON.stringify({ name }) }).then((r) => r.json());
+    document.getElementById("new-child-name").value = "";
+    document.getElementById("add-child-form").classList.add("hidden");
+    selectedChildId = child.id;
+    await loadChildren();
   });
 
   // --- Devices ---
   async function loadDevices() {
-    const devices = await api("/api/devices").then((r) => r.json());
+    allDevices = await api("/api/devices").then((r) => r.json());
+    renderDevices();
+  }
+
+  function renderDevices() {
     const list = document.getElementById("device-list");
+    const devices = allDevices.filter((d) => d.child_profile_id === selectedChildId);
     if (devices.length === 0) {
-      list.innerHTML = "<p style='color:#888;font-size:13px'>No devices enrolled yet.</p>";
+      list.innerHTML = "<p style='color:#888;font-size:13px'>No devices enrolled yet for this child.</p>";
       return;
     }
     list.innerHTML = devices.map((d) => `
@@ -234,37 +299,13 @@
     });
   }
 
-  // STORY-09: a device is now enrolled for a child, not just for a family.
-  // Full multi-child switching is STORY-14's job — this is the smallest
-  // fix that keeps "+ Add device" working under the new model: use the
-  // family's first child if one exists, otherwise show the inline
-  // first-child-card and let the user retry "+ Add device" after.
-  let cachedFirstChildId = null;
-
-  async function ensureChildProfile() {
-    const children = await api("/api/children").then((r) => r.json());
-    if (children.length > 0) {
-      cachedFirstChildId = children[0].id;
-      document.getElementById("first-child-card").classList.add("hidden");
-      return cachedFirstChildId;
-    }
-    document.getElementById("first-child-card").classList.remove("hidden");
-    return null;
-  }
-
-  document.getElementById("create-first-child-btn").addEventListener("click", async () => {
-    const name = document.getElementById("first-child-name").value.trim();
-    if (!name) return;
-    const child = await api("/api/children", { method: "POST", body: JSON.stringify({ name }) }).then((r) => r.json());
-    cachedFirstChildId = child.id;
-    document.getElementById("first-child-card").classList.add("hidden");
-  });
-
   document.getElementById("add-device-btn").addEventListener("click", async () => {
-    const childProfileId = cachedFirstChildId ?? (await ensureChildProfile());
-    if (!childProfileId) return; // first-child-card is now showing — nothing to enroll yet
+    if (!selectedChildId) {
+      document.getElementById("add-child-form").classList.remove("hidden");
+      return;
+    }
     const platform = document.getElementById("new-platform").value;
-    const res = await api("/api/devices", { method: "POST", body: JSON.stringify({ platform, child_profile_id: childProfileId }) });
+    const res = await api("/api/devices", { method: "POST", body: JSON.stringify({ platform, child_profile_id: selectedChildId }) });
     const device = await res.json();
     const banner = document.getElementById("new-code-banner");
     banner.classList.remove("hidden");
@@ -285,11 +326,15 @@
       document.getElementById("policy-bedtime-start").value = (policy.bedtime_start || "").slice(0, 5);
       document.getElementById("policy-bedtime-end").value = (policy.bedtime_end || "").slice(0, 5);
       document.getElementById("policy-categories").value = (policy.content_filter_categories || []).join(", ");
+      document.getElementById("policy-custom-blocked").value = (policy.custom_blocked_domains || []).join(", ");
+      document.getElementById("policy-custom-allowed").value = (policy.custom_allowed_domains || []).join(", ");
     } else {
       document.getElementById("policy-daily-limit").value = 120;
       document.getElementById("policy-bedtime-start").value = "";
       document.getElementById("policy-bedtime-end").value = "";
       document.getElementById("policy-categories").value = "adult, violence, gambling";
+      document.getElementById("policy-custom-blocked").value = "";
+      document.getElementById("policy-custom-allowed").value = "";
     }
 
     await loadInstalledApps(deviceId);
@@ -339,11 +384,15 @@
     const errorEl = document.getElementById("policy-error");
     const dailyLimit = Number(document.getElementById("policy-daily-limit").value);
     const categories = document.getElementById("policy-categories").value.split(",").map((c) => c.trim()).filter(Boolean);
+    const customBlocked = document.getElementById("policy-custom-blocked").value.split(",").map((c) => c.trim()).filter(Boolean);
+    const customAllowed = document.getElementById("policy-custom-allowed").value.split(",").map((c) => c.trim()).filter(Boolean);
     const body = {
       daily_limit_minutes: dailyLimit,
       bedtime_start: document.getElementById("policy-bedtime-start").value || null,
       bedtime_end: document.getElementById("policy-bedtime-end").value || null,
       content_filter_categories: categories,
+      custom_blocked_domains: customBlocked,
+      custom_allowed_domains: customAllowed,
     };
     const res = await api(`/api/devices/${selectedDeviceId}/policy`, { method: "PUT", body: JSON.stringify(body) });
     if (!res.ok) {

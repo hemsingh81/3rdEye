@@ -100,10 +100,26 @@ public class DnsFilter : IDisposable
         }
     }
 
+    // STORY-15: precedence is allow > custom-block > category. An explicit
+    // allow always wins, even over a category match — the case a parent
+    // wants to permit one domain a category sample over-blocks. Checked in
+    // that order, not just intended that way; the order here IS the review
+    // requirement.
     private bool IsBlocked(string domain)
     {
         var policy = _policyClient.GetCachedPolicy();
         if (policy is null) return false;
+
+        if (policy.CustomAllowedDomains?.Any(d => domain.Equals(d, StringComparison.OrdinalIgnoreCase)) == true)
+        {
+            return false;
+        }
+
+        if (policy.CustomBlockedDomains?.Any(d => domain.Equals(d, StringComparison.OrdinalIgnoreCase)) == true)
+        {
+            return true;
+        }
+
         foreach (var category in policy.ContentFilterCategories)
         {
             if (CategoryDomains.TryGetValue(category, out var domains) &&

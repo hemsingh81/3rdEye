@@ -3,6 +3,7 @@ import { Router } from "express";
 import { pool } from "../db/pool.js";
 import { asyncHandler } from "../asyncHandler.js";
 import { requireAuth } from "../auth/middleware.js";
+import { getRequiredFeatures, hasAcceptedJurisdictionNotice } from "../jurisdiction.js";
 
 export const policyRouter = Router();
 
@@ -33,6 +34,7 @@ policyRouter.get("/:deviceId/policy", asyncHandler(async (req, res) => {
             p.content_filter_categories, p.app_control_mode,
             COALESCE((SELECT jsonb_agg(e->>'app_id') FROM jsonb_array_elements(p.app_allowlist) e), '[]'::jsonb) AS app_allowlist,
             p.geofence_rules,
+            p.custom_blocked_domains, p.custom_allowed_domains,
             p.updated_at
      FROM policies p
      JOIN devices d ON d.child_profile_id = p.child_profile_id
@@ -50,12 +52,21 @@ policyRouter.get("/:deviceId/policy", asyncHandler(async (req, res) => {
 // editing it from *any* device belonging to that child updates the same
 // row every other of that child's devices will see on their next pull.
 policyRouter.put("/:deviceId/policy", requireAuth, asyncHandler(async (req, res) => {
-  const { daily_limit_minutes, bedtime_start, bedtime_end, content_filter_categories, geofence_rules } = req.body ?? {};
+  const { daily_limit_minutes, bedtime_start, bedtime_end, content_filter_categories, geofence_rules, custom_blocked_domains, custom_allowed_domains } = req.body ?? {};
   if (typeof daily_limit_minutes !== "number" || daily_limit_minutes < 0) {
     return res.status(400).json({ error: "daily_limit_minutes must be a non-negative number" });
   }
   if (!Array.isArray(content_filter_categories) || !content_filter_categories.every((c) => typeof c === "string")) {
     return res.status(400).json({ error: "content_filter_categories must be an array of strings" });
+  }
+  // STORY-15: optional, same "omitting it keeps what's already set"
+  // treatment as geofence_rules — a plain array of domain strings, no
+  // approval workflow to separate out.
+  if (custom_blocked_domains !== undefined && (!Array.isArray(custom_blocked_domains) || !custom_blocked_domains.every((d: unknown) => typeof d === "string"))) {
+    return res.status(400).json({ error: "custom_blocked_domains must be an array of strings" });
+  }
+  if (custom_allowed_domains !== undefined && (!Array.isArray(custom_allowed_domains) || !custom_allowed_domains.every((d: unknown) => typeof d === "string"))) {
+    return res.status(400).json({ error: "custom_allowed_domains must be an array of strings" });
   }
   // STORY-13: optional — omitting it keeps whatever's already set, same
   // "don't require re-sending every field" treatment app_allowlist gets
@@ -82,13 +93,26 @@ policyRouter.put("/:deviceId/policy", requireAuth, asyncHandler(async (req, res)
   if (device.rows.length === 0) return res.status(404).json({ error: "device not found, or not yet assigned to a child" });
   const childProfileId = device.rows[0].child_profile_id;
 
+  // STORY-16: jurisdiction gate, checked before the write — a rejected
+  // request never gets silently allowed with the notice shown after the
+  // fact. Only gates actually *enabling* the feature (a non-empty
+  // geofence_rules); omitting the field, or clearing it back to empty,
+  // was never gated on anything to begin with.
+  if (Array.isArray(geofence_rules) && geofence_rules.length > 0) {
+    const family = await pool.query("SELECT jurisdiction FROM families WHERE id = $1", [req.auth!.family_id]);
+    const requiredFeatures = await getRequiredFeatures(family.rows[0]?.jurisdiction ?? null);
+    if (requiredFeatures.includes("location") && !(await hasAcceptedJurisdictionNotice(req.auth!.family_id, "location"))) {
+      return res.status(403).json({ error: "jurisdiction notice required before enabling location/geofence", required_feature: "location" });
+    }
+  }
+
   // Assign an id to any new rule (one without one already) — the agent
   // and the alerts feed both reference a zone by this id.
   const geofenceRulesWithIds = geofence_rules?.map((r: any) => ({ id: r.id ?? randomUUID(), ...r })) ?? null;
 
   const { rows } = await pool.query(
-    `INSERT INTO policies (child_profile_id, version, daily_limit_minutes, bedtime_start, bedtime_end, content_filter_categories, geofence_rules, updated_at)
-     VALUES ($1, 1, $2, $3, $4, $5, COALESCE($6::jsonb, '[]'::jsonb), now())
+    `INSERT INTO policies (child_profile_id, version, daily_limit_minutes, bedtime_start, bedtime_end, content_filter_categories, geofence_rules, custom_blocked_domains, custom_allowed_domains, updated_at)
+     VALUES ($1, 1, $2, $3, $4, $5, COALESCE($6::jsonb, '[]'::jsonb), COALESCE($8::text[], '{}'::text[]), COALESCE($9::text[], '{}'::text[]), now())
      ON CONFLICT (child_profile_id) DO UPDATE SET
        version = policies.version + 1,
        daily_limit_minutes = EXCLUDED.daily_limit_minutes,
@@ -96,13 +120,16 @@ policyRouter.put("/:deviceId/policy", requireAuth, asyncHandler(async (req, res)
        bedtime_end = EXCLUDED.bedtime_end,
        content_filter_categories = EXCLUDED.content_filter_categories,
        geofence_rules = COALESCE($6::jsonb, policies.geofence_rules),
+       custom_blocked_domains = COALESCE($8::text[], policies.custom_blocked_domains),
+       custom_allowed_domains = COALESCE($9::text[], policies.custom_allowed_domains),
        updated_at = now()
      RETURNING $7::uuid AS device_id, version, daily_limit_minutes, bedtime_start, bedtime_end, content_filter_categories,
        app_control_mode,
        COALESCE((SELECT jsonb_agg(e->>'app_id') FROM jsonb_array_elements(app_allowlist) e), '[]'::jsonb) AS app_allowlist,
        geofence_rules,
+       custom_blocked_domains, custom_allowed_domains,
        updated_at`,
-    [childProfileId, daily_limit_minutes, bedtime_start ?? null, bedtime_end ?? null, content_filter_categories, geofenceRulesWithIds ? JSON.stringify(geofenceRulesWithIds) : null, req.params.deviceId],
+    [childProfileId, daily_limit_minutes, bedtime_start ?? null, bedtime_end ?? null, content_filter_categories, geofenceRulesWithIds ? JSON.stringify(geofenceRulesWithIds) : null, req.params.deviceId, custom_blocked_domains ?? null, custom_allowed_domains ?? null],
   );
   res.json(rows[0]);
 }));

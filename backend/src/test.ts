@@ -262,6 +262,85 @@ async function main() {
   const geofenceAlertFeed = await authedFetch(token, `/api/devices/${device.id}/alerts`).then((r) => r.json());
   assert(geofenceAlertFeed.some((a: any) => a.type === "geofence_entry" && a.message === "Arrived at: School"), "the geofence entry shows up in the parent dashboard's alerts feed, same language family-tier-spec.md §1 uses");
 
+  // --- STORY-15: custom content filter lists ---
+  // Backend-only check (precedence itself is enforced on-device in
+  // DnsFilter.cs, which this environment can't run) — this just confirms
+  // the two fields round-trip through PUT/GET correctly, same pattern
+  // geofence_rules got in STORY-13.
+  const setCustomLists = await authedFetch(token, `/api/devices/${device.id}/policy`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      daily_limit_minutes: 60,
+      content_filter_categories: ["adult", "violence", "gambling"],
+      custom_blocked_domains: ["blocked-example.test"],
+      custom_allowed_domains: ["allowed-example.test"],
+    }),
+  }).then((r) => r.json());
+  assert(setCustomLists.custom_blocked_domains?.includes("blocked-example.test"), "custom blocked domain saved");
+  assert(setCustomLists.custom_allowed_domains?.includes("allowed-example.test"), "custom allowed domain saved");
+
+  const policyPullHasCustomLists = await fetch(`${base}/api/devices/${device.id}/policy`).then((r) => r.json());
+  assert(policyPullHasCustomLists.custom_blocked_domains?.includes("blocked-example.test"), "policy pull exposes custom_blocked_domains for the agent's DnsFilter");
+  assert(policyPullHasCustomLists.custom_allowed_domains?.includes("allowed-example.test"), "policy pull exposes custom_allowed_domains for the agent's DnsFilter");
+
+  const omittedCustomLists = await authedFetch(token, `/api/devices/${device.id}/policy`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ daily_limit_minutes: 60, content_filter_categories: ["adult", "violence", "gambling"] }),
+  }).then((r) => r.json());
+  assert(omittedCustomLists.custom_blocked_domains?.includes("blocked-example.test"), "omitting custom_blocked_domains on a later PUT keeps the previously-set list, same treatment as geofence_rules");
+
+  // --- STORY-16: jurisdiction-aware consent gating (groundwork) ---
+  // A family with no jurisdiction set (the default for every family above
+  // this point) was never gated on anything — confirmed implicitly by
+  // every geofence_rules PUT above having already succeeded. This section
+  // checks the actual gate: set a jurisdiction that requires a location
+  // notice, confirm enabling geofence_rules without that notice is
+  // rejected outright, then confirm it's allowed once the notice is
+  // recorded.
+  const setJurisdiction = await authedFetch(token, "/api/families/jurisdiction", {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ jurisdiction: "US-CA" }),
+  }).then((r) => r.json());
+  assert(setJurisdiction.jurisdiction === "US-CA", "family jurisdiction saved");
+
+  const gatedAttempt = await authedFetch(token, `/api/devices/${device.id}/policy`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      daily_limit_minutes: 60,
+      content_filter_categories: ["adult", "violence", "gambling"],
+      geofence_rules: [{ name: "Park", lat: 37.4, lon: -122.08, radius_meters: 100 }],
+    }),
+  });
+  assert(gatedAttempt.status === 403, "enabling geofence_rules in a gated jurisdiction without the notice on file is rejected, not silently allowed");
+
+  const recordNotice = await authedFetch(token, `/api/devices/${device.id}/jurisdiction-notice`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ feature: "location", accepted_by: "Test Parent" }),
+  });
+  assert(recordNotice.status === 201, "jurisdiction notice acceptance recorded");
+
+  const allowedAfterNotice = await authedFetch(token, `/api/devices/${device.id}/policy`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      daily_limit_minutes: 60,
+      content_filter_categories: ["adult", "violence", "gambling"],
+      geofence_rules: [{ name: "Park", lat: 37.4, lon: -122.08, radius_meters: 100 }],
+    }),
+  });
+  assert(allowedAfterNotice.status === 200, "the same request succeeds once the jurisdiction notice is on file for the family");
+
+  // Reset — the rest of the suite (and its own families) shouldn't be
+  // affected by this family's jurisdiction, but this device's own
+  // geofence_rules edits below (none remain) aren't gated differently
+  // either way once the notice is on file.
+  await pool.query("UPDATE families SET jurisdiction = NULL WHERE id = $1", [familyId]);
+
   // --- STORY-01: event queue + sync protocol (device-channel, unauthenticated) ---
   const now = new Date();
   const fiveMinAgo = new Date(now.getTime() - 5 * 60 * 1000);
@@ -313,6 +392,32 @@ async function main() {
   await postEvents(); // a real sync should clear the flag
   const resyncedList = await authedFetch(token, "/api/devices").then((r) => r.json());
   assert(resyncedList.find((d: any) => d.id === device.id)?.needs_attention === false, "needs_attention clears once the device actually syncs again");
+
+  // --- STORY-14: F7 multi-child dashboard ---
+  // The console's child-switcher is a client-side filter on the existing
+  // family-scoped device list — this checks the backend precondition it
+  // relies on: two children, two devices each, GET /api/devices returns
+  // all four with the right child_profile_id on each, never mixed up.
+  const secondChildId = await createChild(token, "Second Child");
+
+  const secondChildDeviceA = await authedFetch(token, "/api/devices", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ platform: "android", child_profile_id: secondChildId }),
+  }).then((r) => r.json());
+  const secondChildDeviceB = await authedFetch(token, "/api/devices", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ platform: "ios", child_profile_id: secondChildId }),
+  }).then((r) => r.json());
+
+  const allFamilyDevices = await authedFetch(token, "/api/devices").then((r) => r.json());
+  const firstChildDeviceIds = allFamilyDevices.filter((d: any) => d.child_profile_id === childId).map((d: any) => d.id);
+  const secondChildDeviceIds = allFamilyDevices.filter((d: any) => d.child_profile_id === secondChildId).map((d: any) => d.id);
+
+  assert(firstChildDeviceIds.length >= 2, "first child's devices are present in the family-wide list");
+  assert(secondChildDeviceIds.includes(secondChildDeviceA.id) && secondChildDeviceIds.includes(secondChildDeviceB.id), "second child's devices are present in the family-wide list");
+  assert(!secondChildDeviceIds.includes(device.id) && !firstChildDeviceIds.includes(secondChildDeviceA.id), "switching the child filter never mixes the two children's devices");
 
   console.log("All Phase 0 + policy + event + stale-device + auth + child-profile checks passed.");
   await pool.end();

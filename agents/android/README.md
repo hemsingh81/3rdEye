@@ -106,6 +106,14 @@ compiler or IDE.
   networking APIs (`VpnService` or a local proxy — Android doesn't expose
   a simple binds-to-port-53 equivalent the way desktop OSes do) is real,
   separate platform work, not done in this pass.
+- **STORY-15's custom block/allow domain lists are backend- and
+  Windows-only, for the same reason as the point above**: there's no
+  `DnsFilter` equivalent here for custom domains to plug into. The backend
+  (`policy.ts`) returns `custom_blocked_domains`/`custom_allowed_domains`
+  to every platform regardless, so Android's `PolicyClient.kt` isn't
+  missing data it needs — it's missing the enforcement mechanism F2 itself
+  needs first. Add the fields to `Policy`/`fromJson` here once F2 lands on
+  Android, not before (an unused field with no consumer is dead code).
 - `ConsentActivity.kt`'s failure-path UI (show an error on a failed
   consent POST) is a `// TODO`-equivalent comment, not implemented — the
   Windows `ConsentForm.cs` shows a `MessageBox`; the Android version needs

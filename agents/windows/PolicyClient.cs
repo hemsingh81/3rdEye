@@ -21,7 +21,12 @@ public record Policy(
     // STORY-13: full objects, not flattened like AppAllowlist — the agent
     // needs the name (for the alert message) and the math inputs
     // (lat/lon/radius), not just an id.
-    [property: JsonPropertyName("geofence_rules")] GeofenceRule[]? GeofenceRules
+    [property: JsonPropertyName("geofence_rules")] GeofenceRule[]? GeofenceRules,
+    // STORY-15: nullable like the other additive fields above — an older
+    // cached policy_cache.json on disk (written before this field existed)
+    // deserializes with these as null, not a crash.
+    [property: JsonPropertyName("custom_blocked_domains")] string[]? CustomBlockedDomains,
+    [property: JsonPropertyName("custom_allowed_domains")] string[]? CustomAllowedDomains
 );
 
 public record GeofenceRule(

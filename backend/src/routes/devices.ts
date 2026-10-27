@@ -84,6 +84,31 @@ devicesRouter.post("/:id/consent", asyncHandler(async (req, res) => {
   res.status(201).json(rows[0]);
 }));
 
+// STORY-16: parent records acceptance of a jurisdiction's mandatory notice
+// for a gated feature — reuses consent_records (Phase 0), not a parallel
+// mechanism, distinguished from device-enrollment consent by a non-null
+// `feature`. Parent-initiated (unlike /:id/consent, which is the child's
+// own "I understand" tap on the device) — requires auth + ownership.
+devicesRouter.post("/:id/jurisdiction-notice", requireAuth, asyncHandler(async (req, res) => {
+  const { feature, accepted_by } = req.body ?? {};
+  if (typeof feature !== "string" || feature.trim() === "") {
+    return res.status(400).json({ error: "feature is required" });
+  }
+  if (typeof accepted_by !== "string" || accepted_by.trim() === "") {
+    return res.status(400).json({ error: "accepted_by is required" });
+  }
+  const device = await pool.query("SELECT id FROM devices WHERE id = $1 AND family_id = $2", [req.params.id, req.auth!.family_id]);
+  if (device.rows.length === 0) return res.status(404).json({ error: "device not found" });
+
+  const { rows } = await pool.query(
+    `INSERT INTO consent_records (device_id, policy_version, accepted_by, feature)
+     VALUES ($1, 'jurisdiction-notice', $2, $3)
+     RETURNING id, device_id, feature, accepted_at, accepted_by`,
+    [req.params.id, accepted_by.trim(), feature.trim()],
+  );
+  res.status(201).json(rows[0]);
+}));
+
 // Admin console dashboard — device list with last-synced, per offline-sync-spec.md §5.
 // STORY-04: no longer accepts a family_id query param at all — scoped
 // purely to the authenticated token's own family_id, so there is no input

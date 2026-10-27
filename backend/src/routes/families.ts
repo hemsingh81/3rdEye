@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import { Router } from "express";
 import { pool } from "../db/pool.js";
 import { asyncHandler } from "../asyncHandler.js";
+import { requireAuth } from "../auth/middleware.js";
 
 export const familiesRouter = Router();
 
@@ -45,4 +46,19 @@ familiesRouter.post("/", asyncHandler(async (req, res) => {
   } finally {
     client.release();
   }
+}));
+
+// STORY-16: nullable — most jurisdictions have no mandatory-notice
+// requirement today, so leaving this unset is a valid, permanent state,
+// not an onboarding step every family is forced through.
+familiesRouter.put("/jurisdiction", requireAuth, asyncHandler(async (req, res) => {
+  const { jurisdiction } = req.body ?? {};
+  if (jurisdiction !== null && typeof jurisdiction !== "string") {
+    return res.status(400).json({ error: "jurisdiction must be a string or null" });
+  }
+  const { rows } = await pool.query(
+    "UPDATE families SET jurisdiction = $1 WHERE id = $2 RETURNING id, name, jurisdiction",
+    [jurisdiction, req.auth!.family_id],
+  );
+  res.json(rows[0]);
 }));
