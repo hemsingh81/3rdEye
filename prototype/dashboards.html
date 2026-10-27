@@ -148,6 +148,25 @@
         <tr><td>iPhone 15 — IT-0203</td><td>A. Fernandes</td><td style="color: #B4530A">Flagged lost</td><td>14 hours ago</td></tr>
       </table>
     </div>
+    <div class="card">
+      <div style="font-size: 15px; font-weight: 700; margin-bottom: 10px">App control — fleet devices are MDM-supervised, so block + uninstall both work on every platform</div>
+      <table>
+        <tr><th>App</th><th>Device</th><th>Status</th><th>Action</th></tr>
+        <tr data-app-row="it-vpn">
+          <td>FreeVPN Pro (unapproved)</td><td>ThinkPad — IT-0117</td>
+          <td><span class="app-status" style="color: #B4530A">Installed, not approved</span></td>
+          <td class="app-actions">
+            <button class="app-btn" data-action="block" data-app-row="it-vpn" style="padding: 5px 10px; border-radius: 6px; border: 1px solid #B4530A; background: white; color: #B4530A; font-size: 12px">Block</button>
+            <button class="app-btn" data-action="uninstall" data-app-row="it-vpn" style="padding: 5px 10px; border-radius: 6px; border: 1px solid #B4530A; background: white; color: #B4530A; font-size: 12px">Uninstall</button>
+          </td>
+        </tr>
+        <tr data-app-row="it-slack">
+          <td>Slack</td><td>MacBook Pro — IT-0042</td>
+          <td><span class="app-status" style="color: #0A7A2F">Approved</span></td>
+          <td class="app-actions">—</td>
+        </tr>
+      </table>
+    </div>
   </div>
 
   <!-- Child transparency screen -->
@@ -186,6 +205,12 @@
         status.textContent = 'Approved';
         status.style.color = '#0A7A2F';
         actions.textContent = '—';
+      } else if (btn.dataset.action === 'uninstall') {
+        status.textContent = 'Uninstalled';
+        status.style.color = '#888';
+        actions.textContent = 'Removed from device';
+        actions.style.fontSize = '12px';
+        actions.style.color = '#999';
       } else {
         status.textContent = 'Blocked — not approved';
         status.style.color = '#B4530A';
