@@ -111,11 +111,11 @@ For what actually ships first and in what order, see [mvp-build-plan.md](./mvp-b
 
 For the concrete backend/services/data-flow/tech-stack design underneath all of the above, see [system-architecture-spec.md](./system-architecture-spec.md) — it merges the per-tier "first pass" data models into one unified schema and defines Phase 0's actual deliverables.
 
-## 12. Offline-First Requirement
+## 11. Offline-First Requirement
 
 Every agent must enforce policy and capture data with **zero internet connectivity**, syncing automatically once online — the Admin Console only ever reflects synced state. Full analysis of what's genuinely achievable offline per feature (and the honest exceptions — remote lock/wipe/policy-push are server-initiated commands that cannot function without connectivity, same as any MDM vendor) is in [offline-sync-spec.md](./offline-sync-spec.md).
 
-## 11. Licensing & Purchase Journey
+## 12. Licensing & Purchase Journey
 
 The three tiers above are no longer three separate products with three separate sign-ups. They are unified into **one purchase flow with customizable, usage-based license templates** — see [licensing-billing-spec.md](./licensing-billing-spec.md) for the full purchase journey, meter catalog, and billing data model. In short: a buyer selects a starting template (Family/Workforce/Fleet/Custom), toggles individual features from any pillar, sees a live usage-based price estimate, and the resulting `LicenseAgreement` drives both provisioning and the on-device consent/disclosure screens from a single source of truth.
 

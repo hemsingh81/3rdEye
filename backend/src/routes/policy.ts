@@ -1,11 +1,12 @@
 import { Router } from "express";
 import { pool } from "../db/pool.js";
+import { asyncHandler } from "../asyncHandler.js";
 
 export const policyRouter = Router();
 
 // Agent pulls this on enroll and on every sync (offline-sync-spec.md §4 step 1) —
 // the agent caches it locally and enforces F1/F2 with zero backend round-trip.
-policyRouter.get("/:deviceId/policy", async (req, res) => {
+policyRouter.get("/:deviceId/policy", asyncHandler(async (req, res) => {
   const { rows } = await pool.query(
     `SELECT device_id, version, daily_limit_minutes, bedtime_start, bedtime_end, content_filter_categories, updated_at
      FROM policies WHERE device_id = $1`,
@@ -13,10 +14,10 @@ policyRouter.get("/:deviceId/policy", async (req, res) => {
   );
   if (rows.length === 0) return res.status(404).json({ error: "no policy set for this device yet" });
   res.json(rows[0]);
-});
+}));
 
 // Parent sets/edits policy from the dashboard's policy editor — family-tier-spec.md §3.4.
-policyRouter.put("/:deviceId/policy", async (req, res) => {
+policyRouter.put("/:deviceId/policy", asyncHandler(async (req, res) => {
   const { daily_limit_minutes, bedtime_start, bedtime_end, content_filter_categories } = req.body ?? {};
   if (typeof daily_limit_minutes !== "number" || daily_limit_minutes < 0) {
     return res.status(400).json({ error: "daily_limit_minutes must be a non-negative number" });
@@ -41,4 +42,4 @@ policyRouter.put("/:deviceId/policy", async (req, res) => {
     [req.params.deviceId, daily_limit_minutes, bedtime_start ?? null, bedtime_end ?? null, content_filter_categories],
   );
   res.json(rows[0]);
-});
+}));

@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { Router } from "express";
 import { pool } from "../db/pool.js";
+import { asyncHandler } from "../asyncHandler.js";
 
 export const devicesRouter = Router();
 
@@ -12,7 +13,7 @@ function generateEnrollmentCode(): string {
 }
 
 // Parent generates an enrollment code for a new device — family-tier-spec.md §3.1.
-devicesRouter.post("/", async (req, res) => {
+devicesRouter.post("/", asyncHandler(async (req, res) => {
   const { family_id, platform } = req.body ?? {};
   if (typeof family_id !== "string" || !PLATFORMS.includes(platform)) {
     return res.status(400).json({ error: "family_id and a valid platform are required" });
@@ -25,10 +26,10 @@ devicesRouter.post("/", async (req, res) => {
     [family_id, platform, code],
   );
   res.status(201).json(rows[0]);
-});
+}));
 
 // The device-side agent looks up what to show on the consent screen — family-tier-spec.md §3.2 step 2.
-devicesRouter.get("/by-code/:code", async (req, res) => {
+devicesRouter.get("/by-code/:code", asyncHandler(async (req, res) => {
   const { rows } = await pool.query(
     "SELECT id, family_id, platform, enrollment_status FROM devices WHERE enrollment_code = $1",
     [req.params.code],
@@ -42,11 +43,11 @@ devicesRouter.get("/by-code/:code", async (req, res) => {
       never_collected: ["message content", "call/SMS content", "microphone", "camera"],
     },
   });
-});
+}));
 
 // Child taps "I understand" — records ConsentRecord and marks the device enrolled,
 // per family-tier-spec.md §3.2 step 3 / system-architecture-spec.md §3.
-devicesRouter.post("/:id/consent", async (req, res) => {
+devicesRouter.post("/:id/consent", asyncHandler(async (req, res) => {
   const { accepted_by } = req.body ?? {};
   if (typeof accepted_by !== "string" || accepted_by.trim() === "") {
     return res.status(400).json({ error: "accepted_by is required" });
@@ -65,10 +66,10 @@ devicesRouter.post("/:id/consent", async (req, res) => {
     [req.params.id],
   );
   res.status(201).json(rows[0]);
-});
+}));
 
 // Admin console dashboard — device list with last-synced, per offline-sync-spec.md §5.
-devicesRouter.get("/", async (req, res) => {
+devicesRouter.get("/", asyncHandler(async (req, res) => {
   const { family_id } = req.query;
   const { rows } = await pool.query(
     `SELECT id, family_id, platform, enrollment_status, last_synced_at, created_at
@@ -78,4 +79,4 @@ devicesRouter.get("/", async (req, res) => {
     [family_id ?? null],
   );
   res.json(rows);
-});
+}));

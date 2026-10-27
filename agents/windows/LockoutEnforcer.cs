@@ -13,9 +13,11 @@ public class LockoutEnforcer
     private static extern bool LockWorkStation();
 
     private readonly PolicyClient _policyClient;
-    private readonly DateTime _sessionStart = DateTime.Now;
     private TimeSpan _usedToday = TimeSpan.Zero;
     private DateTime _lastTickAt = DateTime.Now;
+    private DateOnly _usageDate = DateOnly.FromDateTime(DateTime.Now);
+    private bool _lockedForToday;
+    private bool _lockedForBedtime;
 
     public event Action<string>? Locked;
 
@@ -31,6 +33,14 @@ public class LockoutEnforcer
     public void Tick()
     {
         var now = DateTime.Now;
+        var today = DateOnly.FromDateTime(now);
+        if (today != _usageDate)
+        {
+            _usageDate = today;
+            _usedToday = TimeSpan.Zero;
+            _lockedForToday = false;
+        }
+
         _usedToday += now - _lastTickAt;
         _lastTickAt = now;
 
@@ -39,13 +49,28 @@ public class LockoutEnforcer
 
         if (_usedToday.TotalMinutes >= policy.DailyLimitMinutes)
         {
-            Lock($"Daily screen time limit reached ({policy.DailyLimitMinutes} min).");
+            // Lock once per day, not every tick, once the limit is already hit —
+            // the session stays locked on its own; repeat-firing would just spam
+            // the balloon notification every minute.
+            if (!_lockedForToday)
+            {
+                _lockedForToday = true;
+                Lock($"Daily screen time limit reached ({policy.DailyLimitMinutes} min).");
+            }
             return;
         }
 
         if (IsBedtime(policy, now))
         {
-            Lock($"Bedtime ({policy.BedtimeStart}–{policy.BedtimeEnd}).");
+            if (!_lockedForBedtime)
+            {
+                _lockedForBedtime = true;
+                Lock($"Bedtime ({policy.BedtimeStart}–{policy.BedtimeEnd}).");
+            }
+        }
+        else
+        {
+            _lockedForBedtime = false; // outside the window again — re-arm for the next bedtime
         }
     }
 
