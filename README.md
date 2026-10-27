@@ -13,6 +13,8 @@ mode, ever.**
   first, in what order.
 - [docs/specs/implementation-plan.md](docs/specs/implementation-plan.md) —
   the actual next tickets, grounded in what's really built.
+- [docs/specs/development-stories.md](docs/specs/development-stories.md) —
+  that same work broken into stories, each run through CLAUDE.md's workflow.
 - [CLAUDE.md](CLAUDE.md) — the development workflow every story follows
   (analyze → split into tasks → code → test → review → document), and the
   local dev/testing process.

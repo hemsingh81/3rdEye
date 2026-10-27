@@ -14,8 +14,9 @@ whoever wrote the story rather than finding a clever way around it.
 
 Start here, in this order: [docs/specs/product-spec.md](docs/specs/product-spec.md) →
 [docs/specs/mvp-build-plan.md](docs/specs/mvp-build-plan.md) →
-[docs/specs/implementation-plan.md](docs/specs/implementation-plan.md) (the
-actual next tickets, grounded in what's really built).
+[docs/specs/implementation-plan.md](docs/specs/implementation-plan.md) (why
+each task exists) → [docs/specs/development-stories.md](docs/specs/development-stories.md)
+(the actual backlog — pick a story from here, not from implementation-plan.md directly).
 
 ## Development story workflow
 

@@ -2,7 +2,7 @@
 
 Scope: decides what actually ships first, in what order, out of the full vision in [product-spec.md](./product-spec.md), the three tier specs, [feature-list.md](./feature-list.md) (24 features), and [licensing-billing-spec.md](./licensing-billing-spec.md). Everything specced so far is the target state; this doc is the path to it.
 
-For the concrete, engineering-task-level breakdown of what to build next (grounded in what's actually in the repo today, not just the target state), see [implementation-plan.md](./implementation-plan.md).
+For the concrete, engineering-task-level breakdown of what to build next (grounded in what's actually in the repo today, not just the target state), see [implementation-plan.md](./implementation-plan.md) — or [development-stories.md](./development-stories.md) for that same work broken into pick-up-able stories, each run through the CLAUDE.md workflow.
 
 ## 1. Sequencing Principles
 

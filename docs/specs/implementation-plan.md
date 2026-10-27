@@ -2,6 +2,8 @@
 
 Scope: translates the spec set into an ordered, concrete task list — what to actually build next, in what order, with acceptance criteria. Mirrors [mvp-build-plan.md](./mvp-build-plan.md)'s phases, but at engineering-task granularity, and grounded in what's **actually in this repo today**, not what was originally proposed. Where reality has already diverged from an earlier spec, §1 says so explicitly rather than pretending it didn't.
 
+For §1's tasks broken into individually pick-up-able stories — each run through the full analyze/split/code/test/review workflow — see [development-stories.md](./development-stories.md). This doc stays the record of *why* each task exists; that one is the backlog to actually work from.
+
 ## 0. What's Already Built (don't redo this)
 
 | Area | What exists | Where |
