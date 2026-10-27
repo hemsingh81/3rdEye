@@ -1,3 +1,5 @@
 .DS_Store
 backend/node_modules/
 backend/dist/
+agents/windows/bin/
+agents/windows/obj/
