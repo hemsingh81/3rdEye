@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3rdEye — Parental monitoring your child can see too</title>
+<style>
+  :root { --navy: #1D4E89; --green: #0A7A2F; --amber: #B4530A; --bg: #F7F7F5; --ink: #1F2328; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--ink); }
+  a { color: var(--navy); text-decoration: none; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+  header { background: white; border-bottom: 1px solid #E5E3DD; position: sticky; top: 0; z-index: 10; }
+  nav.wrap { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+  .logo { font-weight: 800; font-size: 18px; letter-spacing: -0.01em; }
+  .navlinks { display: flex; align-items: center; gap: 28px; font-size: 14px; color: #444; }
+  @media (max-width: 700px) { .navlinks a:not(.cta) { display: none; } }
+  .cta { background: var(--navy); color: white !important; padding: 10px 18px; border-radius: 8px; font-weight: 600; }
+
+  .hero { padding: 80px 0 64px; text-align: center; }
+  .hero h1 { font-size: 44px; line-height: 1.15; margin: 0 0 16px; max-width: 760px; margin-inline: auto; }
+  .hero .sub { font-size: 18px; color: #555; max-width: 620px; margin: 0 auto 28px; }
+  .hero .ctas { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn-primary { background: var(--navy); color: white; padding: 13px 24px; border-radius: 8px; font-weight: 700; font-size: 15px; }
+  .btn-secondary { background: white; border: 1px solid #D8D5CC; color: var(--ink); padding: 13px 24px; border-radius: 8px; font-weight: 600; font-size: 15px; }
+  .pledge { margin-top: 20px; font-size: 13px; color: #888; }
+
+  section { padding: 56px 0; }
+  .section-title { font-size: 28px; margin: 0 0 8px; text-align: center; }
+  .section-sub { text-align: center; color: #666; font-size: 15px; max-width: 580px; margin: 0 auto 36px; }
+
+  .cards3 { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 20px; }
+  @media (max-width: 800px) { .cards3 { grid-template-columns: 1fr; } }
+  .card { background: white; border: 1px solid #E5E3DD; border-radius: 14px; padding: 26px; }
+  .card .ic { width: 42px; height: 42px; border-radius: 10px; background: #EAF1FA; display: flex; align-items: center; justify-content: center; margin-bottom: 14px; }
+  .card h3 { margin: 0 0 8px; font-size: 17px; }
+  .card p { margin: 0; font-size: 14px; color: #555; line-height: 1.5; }
+
+  .trust { background: white; border-radius: 16px; border: 1px solid #E5E3DD; padding: 36px; display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+  @media (max-width: 700px) { .trust { grid-template-columns: 1fr; } }
+  .trust h4 { margin: 0 0 14px; font-size: 15px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .trust ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; font-size: 14px; }
+  .trust li { display: flex; gap: 8px; }
+  .trust-note { text-align: center; font-size: 13px; color: #888; margin-top: 20px; }
+
+  .pricing-card { max-width: 420px; margin: 0 auto; background: white; border: 1px solid #E5E3DD; border-radius: 16px; padding: 36px; text-align: center; }
+  .price { font-size: 42px; font-weight: 800; margin: 12px 0 4px; }
+  .price span { font-size: 15px; color: #888; font-weight: 500; }
+  .beta-tag { display: inline-block; background: #FDF0E3; color: var(--amber); font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; margin-bottom: 10px; }
+  .pricing-note { font-size: 13px; color: #888; margin-top: 16px; }
+
+  .final-cta { text-align: center; background: var(--navy); border-radius: 16px; padding: 48px 24px; color: white; }
+  .final-cta h2 { margin: 0 0 10px; font-size: 26px; }
+  .final-cta p { margin: 0 0 22px; color: #D9E4F2; }
+  .final-cta .btn-primary { background: white; color: var(--navy); }
+
+  footer { border-top: 1px solid #E5E3DD; padding: 32px 0; font-size: 13px; color: #888; }
+  .footlinks { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; margin-bottom: 10px; }
+  .footlinks a { color: #666; }
+</style>
+</head>
+<body>
+
+<header>
+  <nav class="wrap">
+    <div class="logo">3rdEye</div>
+    <div class="navlinks">
+      <a href="#how">How it works</a>
+      <a href="#trust">Trust &amp; Transparency</a>
+      <a href="#pricing">Pricing</a>
+      <a class="cta" href="#pricing">Get started</a>
+    </div>
+  </nav>
+</header>
+
+<div class="hero wrap">
+  <h1>Parental monitoring your child can see too.</h1>
+  <p class="sub">3rdEye locks screen time, filters content, and controls which apps get installed — and shows your child exactly what's being tracked, every time. No hidden mode. Ever.</p>
+  <div class="ctas">
+    <a class="btn-primary" href="#pricing">See pricing</a>
+    <a class="btn-secondary" href="#how">How it works</a>
+  </div>
+  <div class="pledge">Works on Android, iOS, macOS &amp; Windows — enforced on-device, even offline.</div>
+</div>
+
+<section id="how" class="wrap">
+  <h2 class="section-title">How it works</h2>
+  <p class="section-sub">Three things that actually matter to a parent — not a technical feature list.</p>
+  <div class="cards3">
+    <div class="card">
+      <div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1D4E89" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>
+      <h3>Real screen-time lockout</h3>
+      <p>Set a daily limit or bedtime, and the device actually locks at that moment — not just a report you read the next day.</p>
+    </div>
+    <div class="card">
+      <div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1D4E89" stroke-width="2"><path d="M12 3l8 4v5c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V7l8-4z"/></svg></div>
+      <h3>Content filtering that just works</h3>
+      <p>Block adult, violent, and gambling content by category, plus your own custom list — filtered on the device, instantly.</p>
+    </div>
+    <div class="card">
+      <div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1D4E89" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M4 9h16"/></svg></div>
+      <h3>App control, not just app visibility</h3>
+      <p>Nothing installs without your approval. If something gets on the device anyway, we block it from running — and you can remove it remotely.</p>
+    </div>
+  </div>
+</section>
+
+<section id="trust" class="wrap">
+  <h2 class="section-title">Nothing hidden. From anyone.</h2>
+  <p class="section-sub">This is the exact same list your child sees in their own "what my parent can see" screen — we don't say one thing to you and show another to them.</p>
+  <div class="trust">
+    <div>
+      <h4 style="color: var(--green)">What we track</h4>
+      <ul>
+        <li><span style="color: var(--green)">&#10003;</span> Screen time and app usage</li>
+        <li><span style="color: var(--green)">&#10003;</span> Location and arrival/departure alerts</li>
+        <li><span style="color: var(--green)">&#10003;</span> App install requests and installed apps</li>
+        <li><span style="color: var(--green)">&#10003;</span> Web category (not full browsing history)</li>
+      </ul>
+    </div>
+    <div>
+      <h4 style="color: var(--amber)">What we never track</h4>
+      <ul>
+        <li><span style="color: #999">&#10007;</span> Message or call content</li>
+        <li><span style="color: #999">&#10007;</span> Microphone or camera, ever</li>
+        <li><span style="color: #999">&#10007;</span> Full browsing history at the URL level</li>
+        <li><span style="color: #999">&#10007;</span> Anything not shown on your child's own screen</li>
+      </ul>
+    </div>
+  </div>
+  <div class="trust-note">The 3rdEye icon is always visible on the device — it cannot be hidden, by us or by anyone.</div>
+</section>
+
+<section id="pricing" class="wrap">
+  <h2 class="section-title">Simple pricing to start</h2>
+  <p class="section-sub">We're in beta — pricing is flat and simple today, and usage-based options arrive later. You'll always see any change before it applies.</p>
+  <div class="pricing-card">
+    <div class="beta-tag">Introductory beta price</div>
+    <div class="price">$4.99<span> / device / month</span></div>
+    <p style="font-size: 14px; color: #555; margin: 10px 0 0">Everything on this page, for one device. Cancel anytime.</p>
+    <a class="btn-primary" href="index.html" style="display: inline-block; margin-top: 20px; width: 100%">Get started</a>
+    <div class="pricing-note">No usage caps, no hidden meters during the beta — those are a later, clearly-announced phase, not a surprise on your bill.</div>
+  </div>
+</section>
+
+<section class="wrap">
+  <div class="final-cta">
+    <h2>Set it up in under five minutes.</h2>
+    <p>Your child sees the same consent screen you do — before anything is tracked.</p>
+    <a class="btn-primary" href="index.html">Get started</a>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="footlinks">
+      <a href="#">Privacy Policy</a>
+      <a href="#">Terms of Service</a>
+      <a href="#">Data Retention</a>
+      <a href="index.html">Feature map (internal)</a>
+    </div>
+    <div style="text-align: center">&copy; 2026 3rdEye. Beta — Family tier only, Android &amp; Windows.</div>
+  </div>
+</footer>
+
+</body>
+</html>

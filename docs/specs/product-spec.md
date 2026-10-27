@@ -118,3 +118,5 @@ Every agent must enforce policy and capture data with **zero internet connectivi
 ## 11. Licensing & Purchase Journey
 
 The three tiers above are no longer three separate products with three separate sign-ups. They are unified into **one purchase flow with customizable, usage-based license templates** — see [licensing-billing-spec.md](./licensing-billing-spec.md) for the full purchase journey, meter catalog, and billing data model. In short: a buyer selects a starting template (Family/Workforce/Fleet/Custom), toggles individual features from any pillar, sees a live usage-based price estimate, and the resulting `LicenseAgreement` drives both provisioning and the on-device consent/disclosure screens from a single source of truth.
+
+The public, unauthenticated entry point into that purchase flow — the marketing/landing site a buyer actually lands on before any of the above — is specced separately in [marketing-site-spec.md](./marketing-site-spec.md), scoped to launch (Family tier only, per mvp-build-plan.md Phase 1–2).
