@@ -4,6 +4,8 @@ New cross-cutting requirement: **every agent must keep working with no internet 
 
 Ties into: [system-architecture-spec.md](./system-architecture-spec.md) (adds a local-agent data layer), [feature-list.md](./feature-list.md) (adds an offline-capability column), all three tier specs, and [mvp-build-plan.md](./mvp-build-plan.md) (this becomes a Phase 0/1 foundation item, not a later add-on).
 
+**Not to be confused with [dev-standalone-mode-spec.md](./dev-standalone-mode-spec.md)**: this doc assumes one real online enrollment, then offline-capable operation afterward. Standalone mode is a separate, dev-build-only mechanism that skips online enrollment entirely for local testing — never present in a release build.
+
 ## 1. Core Principle: Local-First Enforcement, Eventually-Consistent Reporting
 
 - **Policy enforcement is local.** The agent caches its current `Policy` (screen time rules, content filter lists, geofence definitions, work-hours schedule, compliance requirements) on-device. Enforcement decisions (lock the device, block a site, flag a file event) are made **entirely on-device**, using the local policy cache and the device's own clock/sensors — no round-trip to the backend required at the moment of enforcement.

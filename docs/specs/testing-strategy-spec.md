@@ -89,6 +89,10 @@ Local dev shouldn't require real APNs/FCM/WNS credentials for every iteration lo
 - **MDM Command Service** similarly mocks the real MDM protocol handshake in dev — exercising the command-issued → command-acknowledged flow against a stub, not real Apple Business Manager/Android Enterprise/Intune infrastructure, which needs real enrolled devices and is reserved for staging/pre-release (§6).
 - Real push/MDM credentials (sandbox tier — APNs sandbox, FCM test project) get introduced at the **staging** environment, not local dev, matching system-architecture-spec.md §7's environment table.
 
+## 5.1 Dev-Only Standalone Mode (fastest local-iteration path)
+
+For iterating on the local policy engine itself (lockout, filtering, etc.) without needing the Podman backend running at all, see [dev-standalone-mode-spec.md](./dev-standalone-mode-spec.md) — a dev-build-only config file that seeds a synthetic policy/consent record and runs the agent fully offline from the start, no enrollment, no backend. A sample file is at [dev-tools/dev-standalone-config.sample.txt](../../dev-tools/dev-standalone-config.sample.txt). Use this first while building/testing enforcement logic on the Windows laptop (or any test machine); switch to the real LAN-connected Podman backend (§2) once testing the actual consent/sync/billing path end-to-end.
+
 ## 6. Testing the Offline-First Requirement (ties to offline-sync-spec.md)
 
 This is the one requirement that needs deliberate, repeatable network-failure testing, not just "it worked when I tried it":

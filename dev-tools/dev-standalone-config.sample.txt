@@ -1,0 +1,54 @@
+# 3rdeye-dev-config.txt
+#
+# DEV / TEST BUILD ONLY — see docs/specs/dev-standalone-mode-spec.md
+# Do NOT bundle this file with, or reference this mechanism from,
+# any production/release installer. A release build must not contain
+# the code that reads this file at all (see that spec's §1).
+#
+# How to use this file (for a dev build only):
+#   1. Rename this copy to "3rdeye-dev-config.txt"
+#   2. Edit the values below for your test scenario
+#   3. Place it in the SAME FOLDER as the dev installer/executable
+#      before running it on the test machine (e.g. your Windows laptop)
+#   4. Launch the agent — a dev build checks for this file on startup
+#      and, if found, runs fully offline in "standalone" mode: no
+#      backend connection, no online enrollment, policy enforced
+#      straight from this file. See dev-standalone-mode-spec.md §3.
+
+mode=standalone
+
+# --- Identity (synthetic test values — no real backend entities) ---
+device_id=dev-win-laptop-01
+family_id=dev-family-01
+child_profile_id=dev-child-01
+policy_version=dev-1
+
+# --- Consent (pre-filled for standalone testing) ---
+# The on-device disclosure screen still renders using this data — it's
+# pre-accepted instead of waiting for a tap, so you can still review/
+# test the consent copy itself without a backend round-trip.
+consent.accepted=true
+consent.accepted_at=2026-10-27T00:00:00Z
+consent.accepted_by=dev-tester
+
+# --- Policy under test ---
+policy.screen_time.daily_limit_minutes=120
+policy.screen_time.bedtime_start=21:00
+policy.screen_time.bedtime_end=07:00
+policy.content_filter.categories=adult,violence,gambling
+policy.content_filter.custom_block=example-blocked-site.test
+policy.location.enabled=false
+policy.app_install_approval.enabled=false
+
+# --- Local storage ---
+# Where the agent writes its local DB, event queue, and any captured
+# test artifacts. Change the drive/path to suit your test machine.
+local_data_dir=%PROGRAMDATA%\3rdEye\dev\
+log_level=debug
+
+# --- Networking ---
+# Deliberately left blank: standalone mode never attempts a backend
+# sync, by design — this isn't "no backend configured", it's "no
+# backend contacted, period," enforced in code regardless of this value.
+backend_url=
+sync_enabled=false
