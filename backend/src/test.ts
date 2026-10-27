@@ -134,6 +134,13 @@ async function main() {
   const afterEvents = await authedFetch(token, "/api/devices").then((r) => r.json());
   assert(afterEvents[0].last_synced_at !== null, "last_synced_at updated after event flush");
 
+  // --- STORY-05: alerts feed read endpoint ---
+  const alertsFeed = await authedFetch(token, `/api/devices/${device.id}/alerts`).then((r) => r.json());
+  assert(alertsFeed.length === 1 && alertsFeed[0].type === "daily_limit_reached", "alerts feed returns the posted alert event");
+
+  const alertsForbidden = await authedFetch(otherToken, `/api/devices/${device.id}/alerts`);
+  assert(alertsForbidden.status === 404, "a different family's token cannot read this device's alerts");
+
   // --- STORY-03: stale-device sweep (X9, offline-sync-spec.md §5) ---
   await pool.query("UPDATE devices SET last_synced_at = now() - interval '25 hours' WHERE id = $1", [device.id]);
 

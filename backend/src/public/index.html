@@ -1,38 +1,288 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
-<meta charset="utf-8" />
-<title>3rdEye Admin Console (Phase 0)</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3rdEye Admin Console</title>
 <style>
-  body { font-family: -apple-system, sans-serif; max-width: 700px; margin: 40px auto; color: #222; }
-  table { width: 100%; border-collapse: collapse; margin-top: 16px; }
-  th, td { text-align: left; padding: 8px; border-bottom: 1px solid #ddd; font-size: 14px; }
-  .status-enrolled { color: #0a7a2f; }
-  .status-pending { color: #a66a00; }
+  :root { --navy: #1D4E89; --green: #0A7A2F; --amber: #B4530A; --bg: #F7F7F5; --ink: #1F2328; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--ink); }
+  a { color: var(--navy); text-decoration: none; }
+  button, input { font-family: inherit; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 10px 12px; font-size: 13px; border-bottom: 1px solid #F0EFEA; }
+  th { color: #888; font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: 0.04em; }
+  .wrap { width: 100%; max-width: 980px; margin: 0 auto; padding: 32px 24px 80px; display: flex; flex-direction: column; gap: 20px; }
+  .card { background: white; border: 1px solid #E5E3DD; border-radius: 12px; padding: 20px; }
+  .btn { padding: 9px 16px; border-radius: 7px; border: none; background: var(--navy); color: white; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .btn.secondary { background: white; border: 1px solid #D8D5CC; color: var(--ink); }
+  .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+  .field label { font-size: 12px; color: #666; }
+  .field input, .field select { padding: 8px 10px; border: 1px solid #D8D5CC; border-radius: 6px; font-size: 14px; }
+  .error { color: var(--amber); font-size: 13px; min-height: 18px; }
+  .hidden { display: none !important; }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .tag { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+  .tag.attn { background: #FDF0E3; color: var(--amber); }
+  .tag.ok { background: #EAF6EC; color: var(--green); }
+  .device-item { border: 1px solid #E5E3DD; border-radius: 10px; padding: 14px; margin-bottom: 10px; cursor: pointer; }
+  .device-item:hover { border-color: var(--navy); }
+  .link-btn { background: none; border: none; color: var(--navy); font-size: 13px; cursor: pointer; padding: 0; }
 </style>
 </head>
 <body>
-  <h2>3rdEye — Devices</h2>
-  <p>Phase 0 shell: no policy editor yet, per mvp-build-plan.md §2 exit criterion.</p>
-  <table>
-    <thead><tr><th>Platform</th><th>Status</th><th>Last synced</th><th>Enrolled</th></tr></thead>
-    <tbody id="rows"></tbody>
-  </table>
-  <script>
-    fetch("/api/devices").then((r) => r.json()).then((devices) => {
-      const rows = document.getElementById("rows");
-      if (devices.length === 0) {
-        rows.innerHTML = '<tr><td colspan="4">No devices enrolled yet.</td></tr>';
-        return;
-      }
-      rows.innerHTML = devices.map((d) => `
-        <tr>
-          <td>${d.platform}</td>
-          <td class="status-${d.enrollment_status}">${d.enrollment_status}</td>
-          <td>${d.last_synced_at ? new Date(d.last_synced_at).toLocaleString() : "never"}</td>
-          <td>${new Date(d.created_at).toLocaleString()}</td>
-        </tr>`).join("");
+
+<!-- Login / register -->
+<div id="auth-view" class="wrap" style="max-width: 420px">
+  <h2>3rdEye Admin Console</h2>
+  <div class="card">
+    <div class="row" style="margin-bottom: 14px">
+      <button class="link-btn" id="show-login" style="font-weight: 700">Log in</button>
+      <button class="link-btn" id="show-register">Create a family account</button>
+    </div>
+
+    <form id="login-form">
+      <div class="field"><label>Email</label><input type="email" id="login-email" required></div>
+      <div class="field"><label>Password</label><input type="password" id="login-password" required></div>
+      <div class="error" id="login-error"></div>
+      <button class="btn" type="submit" style="width: 100%">Log in</button>
+    </form>
+
+    <form id="register-form" class="hidden">
+      <div class="field"><label>Family name</label><input type="text" id="register-name" required></div>
+      <div class="field"><label>Email</label><input type="email" id="register-email" required></div>
+      <div class="field"><label>Password (min 8 characters)</label><input type="password" id="register-password" minlength="8" required></div>
+      <div class="error" id="register-error"></div>
+      <button class="btn" type="submit" style="width: 100%">Create account</button>
+    </form>
+  </div>
+</div>
+
+<!-- Dashboard -->
+<div id="dashboard-view" class="wrap hidden">
+  <div class="row">
+    <h2 style="margin: 0">3rdEye — Devices</h2>
+    <button class="btn secondary" id="logout-btn">Log out</button>
+  </div>
+
+  <div class="card">
+    <div class="row" style="margin-bottom: 10px">
+      <div style="font-size: 15px; font-weight: 700">Devices</div>
+      <div class="row" style="gap: 8px">
+        <select id="new-platform">
+          <option value="android">Android</option>
+          <option value="ios">iOS</option>
+          <option value="macos">macOS</option>
+          <option value="windows">Windows</option>
+        </select>
+        <button class="btn" id="add-device-btn">+ Add device</button>
+      </div>
+    </div>
+    <div id="new-code-banner" class="hidden" style="background: #EAF1FA; border-radius: 8px; padding: 12px; margin-bottom: 10px; font-size: 13px"></div>
+    <div id="device-list"></div>
+  </div>
+
+  <!-- Policy editor + alerts for the selected device -->
+  <div id="device-detail" class="card hidden">
+    <div class="row" style="margin-bottom: 14px">
+      <div style="font-size: 15px; font-weight: 700">Policy editor</div>
+      <button class="link-btn" id="close-detail">Close</button>
+    </div>
+    <div class="field"><label>Daily screen time limit (minutes)</label><input type="number" id="policy-daily-limit" min="0"></div>
+    <div class="field"><label>Bedtime start (HH:MM)</label><input type="text" id="policy-bedtime-start" placeholder="21:00"></div>
+    <div class="field"><label>Bedtime end (HH:MM)</label><input type="text" id="policy-bedtime-end" placeholder="07:00"></div>
+    <div class="field"><label>Content filter categories (comma-separated)</label><input type="text" id="policy-categories" placeholder="adult, violence, gambling"></div>
+    <div class="error" id="policy-error"></div>
+    <button class="btn" id="save-policy-btn">Save policy</button>
+    <div style="font-size: 12px; color: #999; margin-top: 8px">Changes here show the child a re-consent screen before they take effect.</div>
+
+    <div style="font-size: 15px; font-weight: 700; margin-top: 24px; margin-bottom: 10px">Alerts feed</div>
+    <table>
+      <thead><tr><th>Time</th><th>Type</th><th>Message</th></tr></thead>
+      <tbody id="alerts-rows"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  const TOKEN_KEY = "3rdeye_token";
+  let selectedDeviceId = null;
+
+  function getToken() { return localStorage.getItem(TOKEN_KEY); }
+  function setToken(t) { localStorage.setItem(TOKEN_KEY, t); }
+  function clearToken() { localStorage.removeItem(TOKEN_KEY); }
+
+  async function api(path, options = {}) {
+    const res = await fetch(path, {
+      ...options,
+      headers: { "content-type": "application/json", ...(options.headers || {}), authorization: `Bearer ${getToken()}` },
     });
-  </script>
+    if (res.status === 401) { clearToken(); showAuthView(); throw new Error("unauthenticated"); }
+    return res;
+  }
+
+  function showAuthView() {
+    document.getElementById("auth-view").classList.remove("hidden");
+    document.getElementById("dashboard-view").classList.add("hidden");
+  }
+
+  function showDashboardView() {
+    document.getElementById("auth-view").classList.add("hidden");
+    document.getElementById("dashboard-view").classList.remove("hidden");
+    loadDevices();
+  }
+
+  // --- Auth ---
+  document.getElementById("show-login").addEventListener("click", () => {
+    document.getElementById("login-form").classList.remove("hidden");
+    document.getElementById("register-form").classList.add("hidden");
+  });
+  document.getElementById("show-register").addEventListener("click", () => {
+    document.getElementById("login-form").classList.add("hidden");
+    document.getElementById("register-form").classList.remove("hidden");
+  });
+
+  document.getElementById("login-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = document.getElementById("login-email").value;
+    const password = document.getElementById("login-password").value;
+    const res = await fetch("/api/auth/login", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    const body = await res.json();
+    const errorEl = document.getElementById("login-error");
+    if (!res.ok) { errorEl.textContent = body.error || "Login failed."; return; }
+    errorEl.textContent = "";
+    setToken(body.token);
+    showDashboardView();
+  });
+
+  document.getElementById("register-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const name = document.getElementById("register-name").value;
+    const email = document.getElementById("register-email").value;
+    const password = document.getElementById("register-password").value;
+    const res = await fetch("/api/families", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name, email, password }),
+    });
+    const body = await res.json();
+    const errorEl = document.getElementById("register-error");
+    if (!res.ok) { errorEl.textContent = body.error || "Could not create account."; return; }
+    errorEl.textContent = "";
+    const loginRes = await fetch("/api/auth/login", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    const loginBody = await loginRes.json();
+    setToken(loginBody.token);
+    showDashboardView();
+  });
+
+  document.getElementById("logout-btn").addEventListener("click", () => {
+    clearToken();
+    // Clear the device-detail panel too — otherwise it stays open underneath,
+    // showing the previous session's selected device the moment anyone
+    // (the same user or, on a shared machine, someone else) logs back in.
+    selectedDeviceId = null;
+    document.getElementById("device-detail").classList.add("hidden");
+    document.getElementById("new-code-banner").classList.add("hidden");
+    showAuthView();
+  });
+
+  // --- Devices ---
+  async function loadDevices() {
+    const devices = await api("/api/devices").then((r) => r.json());
+    const list = document.getElementById("device-list");
+    if (devices.length === 0) {
+      list.innerHTML = "<p style='color:#888;font-size:13px'>No devices enrolled yet.</p>";
+      return;
+    }
+    list.innerHTML = devices.map((d) => `
+      <div class="device-item" data-id="${d.id}">
+        <div class="row">
+          <div>
+            <strong>${d.platform}</strong>
+            ${d.needs_attention ? '<span class="tag attn">Needs attention</span>' : `<span class="tag ok">${d.enrollment_status}</span>`}
+          </div>
+          <div style="font-size: 12px; color: #888">${d.last_synced_at ? "Last synced: " + new Date(d.last_synced_at).toLocaleString() : "Never synced"}</div>
+        </div>
+      </div>`).join("");
+    list.querySelectorAll(".device-item").forEach((el) => {
+      el.addEventListener("click", () => openDevice(el.dataset.id));
+    });
+  }
+
+  document.getElementById("add-device-btn").addEventListener("click", async () => {
+    const platform = document.getElementById("new-platform").value;
+    const res = await api("/api/devices", { method: "POST", body: JSON.stringify({ platform }) });
+    const device = await res.json();
+    const banner = document.getElementById("new-code-banner");
+    banner.classList.remove("hidden");
+    banner.textContent = `Enrollment code for the new ${platform} device: ${device.enrollment_code} — shown once, enter it in the agent's enrollment screen.`;
+    loadDevices();
+  });
+
+  // --- Device detail: policy editor + alerts ---
+  async function openDevice(deviceId) {
+    selectedDeviceId = deviceId;
+    document.getElementById("device-detail").classList.remove("hidden");
+    document.getElementById("policy-error").textContent = "";
+
+    const policyRes = await fetch(`/api/devices/${deviceId}/policy`);
+    if (policyRes.ok) {
+      const policy = await policyRes.json();
+      document.getElementById("policy-daily-limit").value = policy.daily_limit_minutes ?? "";
+      document.getElementById("policy-bedtime-start").value = (policy.bedtime_start || "").slice(0, 5);
+      document.getElementById("policy-bedtime-end").value = (policy.bedtime_end || "").slice(0, 5);
+      document.getElementById("policy-categories").value = (policy.content_filter_categories || []).join(", ");
+    } else {
+      document.getElementById("policy-daily-limit").value = 120;
+      document.getElementById("policy-bedtime-start").value = "";
+      document.getElementById("policy-bedtime-end").value = "";
+      document.getElementById("policy-categories").value = "adult, violence, gambling";
+    }
+
+    const alerts = await api(`/api/devices/${deviceId}/alerts`).then((r) => r.json());
+    const alertsRows = document.getElementById("alerts-rows");
+    alertsRows.innerHTML = alerts.length === 0
+      ? '<tr><td colspan="3" style="color:#888">No alerts yet.</td></tr>'
+      : alerts.map((a) => `<tr><td>${new Date(a.ts).toLocaleString()}</td><td>${a.type}</td><td>${a.message || ""}</td></tr>`).join("");
+  }
+
+  document.getElementById("close-detail").addEventListener("click", () => {
+    selectedDeviceId = null;
+    document.getElementById("device-detail").classList.add("hidden");
+  });
+
+  document.getElementById("save-policy-btn").addEventListener("click", async () => {
+    const errorEl = document.getElementById("policy-error");
+    const dailyLimit = Number(document.getElementById("policy-daily-limit").value);
+    const categories = document.getElementById("policy-categories").value.split(",").map((c) => c.trim()).filter(Boolean);
+    const body = {
+      daily_limit_minutes: dailyLimit,
+      bedtime_start: document.getElementById("policy-bedtime-start").value || null,
+      bedtime_end: document.getElementById("policy-bedtime-end").value || null,
+      content_filter_categories: categories,
+    };
+    const res = await api(`/api/devices/${selectedDeviceId}/policy`, { method: "PUT", body: JSON.stringify(body) });
+    if (!res.ok) {
+      const err = await res.json();
+      errorEl.textContent = err.error || "Could not save policy.";
+      return;
+    }
+    errorEl.textContent = "";
+    openDevice(selectedDeviceId); // refresh with the saved version
+  });
+
+  // --- Boot ---
+  if (getToken()) {
+    showDashboardView();
+  } else {
+    showAuthView();
+  }
+</script>
 </body>
 </html>
