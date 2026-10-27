@@ -44,7 +44,7 @@ Explicitly out of scope for v1:
 ### 3.4 Daily Use (IT Admin)
 - Fleet dashboard: compliance status per device, last check-in, pending actions.
 - Lost/stolen device flow: Admin flags device lost → triggers lost-mode lock screen (custom message + recovery contact) → location polling increases in frequency → option to remote wipe if unrecoverable.
-- Bulk policy push (e.g., force OS update, revoke app).
+- Bulk policy push (e.g., force OS update, block/uninstall an app) — same default-deny app-control mechanism as family-tier-spec.md §2 (F3), just at fleet scale: a device enrolled here gets full block + remote-uninstall support on every platform, since MDM enrollment is exactly what Family tier's non-Android platforms are missing.
 - Audit log of every lock/wipe/location-query action (who did it, when) — same `AuditLogEntry` shape as Employer tier.
 
 ## 4. Data Model

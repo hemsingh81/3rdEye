@@ -61,7 +61,7 @@ Scope: the concrete technical backbone underneath every tier spec and the [mvp-b
 | **Event Stream / Queue** | Durable buffer between ingestion and storage/processing (see §5) | — |
 | **Metering & Billing Service** | Consumes events from the stream, aggregates into `UsageMeterEvent`, applies `LicenseAgreement` allowances/caps, generates `BillingPeriodInvoice` | `UsageMeterEvent`, `BillingPeriodInvoice`, `UsageCapEvent` |
 | **Notification Service** | Pushes alerts to parent/admin apps and devices (geofence, limit hit, agent disabled, lost-mode, DLP alert) via APNs/FCM/WNS/email | `AlertEvent` |
-| **MDM Command Service** | Issues remote lock/wipe/locate/policy-push commands via platform-native MDM protocols (APNs-based MDM, Android Enterprise DPC channel, Windows MDM/Autopilot channel) — **never a custom polling/beaconing protocol**, per av-edr-compliance-spec.md §5 | `RemoteActionLog`, `LostModeEvent` |
+| **MDM Command Service** | Issues remote lock/wipe/locate/policy-push/**app-uninstall** commands via platform-native MDM protocols (APNs-based MDM, Android Enterprise DPC channel, Windows MDM/Autopilot channel) — **never a custom polling/beaconing protocol**, per av-edr-compliance-spec.md §5. App-uninstall is Android-native on any device; on iOS/macOS/Windows it only works once the device carries an MDM profile (Fleet-tier enrollment), same constraint as family-tier-spec.md §2.1 | `RemoteActionLog`, `LostModeEvent` |
 | **Licensing & Checkout Service** | Serves the unified purchase journey (licensing-billing-spec.md §2), stores `LicenseTemplate`/`LicenseAgreement`, drives feature-flag provisioning | `LicenseTemplate`, `LicenseAgreement` |
 | **Admin Console (Web Frontend)** | Dashboards, policy editor, checkout UI, audit log viewer | — (reads from above services only) |
 | **Audit Service** | Records every policy change, data export, remote action, consent acceptance for compliance | `AuditLogEntry` |
@@ -97,6 +97,8 @@ Policy (
   id, child_profile_id | team_id | fleet_policy_id,
   derived_from: LicenseAgreement.feature_flags,   // single source of truth, §6 of licensing-billing-spec.md
   screen_time_rules{}, content_filter_rules{}, geofence_rules{},
+  app_control_mode [default_deny | notify_only],  // F3 — default_deny is the standard setting
+  app_allowlist[] (app_id, approved_at, approved_by),
   category_map{}, screenshot_enabled, screenshot_interval, dlp_rules{}, work_hours{},
   min_os_version, require_encryption, require_passcode, check_in_interval
 )
@@ -109,8 +111,9 @@ LocationEvent      (device_id, lat, lon, geofence_id_nullable, ts)
 ScreenshotEvent    (device_id, ts, thumbnail_ref, visible_to_employee)
 DlpAlertEvent      (device_id, file_pattern_matched, destination_type, ts)
 ComplianceCheckEvent (device_id, check_type, result, ts)
+InstalledAppEvent  (device_id, app_id, install_source, is_approved, blocked_locally, detected_at)  // F3 inventory + block decision, evaluated against app_allowlist on-device
 AlertEvent         (device_id, type, payload, ts, acknowledged)
-RemoteActionLog    (device_id, actor_id, action_type, ts)
+RemoteActionLog    (device_id, actor_id, action_type [lock|wipe|locate|policy_push|app_uninstall], ts)  // F3's remote uninstall reuses this, same channel as M2/M3/M8
 LostModeEvent      (device_id, triggered_by, ts, recovery_contact, resolved_at)
 
 // Billing (primary DB, not the event stream — needs transactional integrity)
