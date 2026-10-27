@@ -1,8 +1,10 @@
 # 3rdEye — Development Stories (Draft v0.1)
 
-Scope: [implementation-plan.md](./implementation-plan.md)'s §1 tasks, converted into stories — each one run through the [CLAUDE.md](../../CLAUDE.md) workflow (Analyze → Split into tasks → Code → Test → Review → Document). This is the backlog to actually pick a ticket from; implementation-plan.md stays the record of *why* each one exists and what was decided. Only Phase 1 is broken out this far — Phase 2–5 stay at implementation-plan.md §2's pointer-level, for the same reason that doc gives: writing this much detail before a phase starts is exactly the premature-depth mistake this spec set has already been caught making once.
+Scope: [implementation-plan.md](./implementation-plan.md)'s §1 and §2 tasks, converted into stories — each one run through the [CLAUDE.md](../../CLAUDE.md) workflow (Analyze → Split into tasks → Code → Test → Review → Document). This is the backlog to actually pick a ticket from; implementation-plan.md stays the record of *why* each one exists and what was decided. Only Phase 1 and Phase 2 are broken out this far, now that Phase 1 is complete — Phase 3–5 stay at implementation-plan.md §2's pointer-level, for the same reason that doc gives: writing this much detail before a phase starts is exactly the premature-depth mistake this spec set has already been caught making once.
 
-**Dependency order:** STORY-01 → (STORY-02, STORY-03, STORY-04 can start once STORY-01's contracts exist) → STORY-05 depends on STORY-03 + STORY-04 → STORY-06 and STORY-07 are independent of the others and of each other → STORY-08 is ongoing, not a one-time unlock.
+**Phase 1 dependency order:** STORY-01 → (STORY-02, STORY-03, STORY-04 can start once STORY-01's contracts exist) → STORY-05 depends on STORY-03 + STORY-04 → STORY-06 and STORY-07 are independent of the others and of each other → STORY-08 is ongoing, not a one-time unlock. **Phase 1 status: all 8 stories complete** (backend/console/Windows agent feature-complete; Android agent scaffolded but unverified, no SDK available in this environment).
+
+**Phase 2 dependency order:** STORY-09 first (ChildProfile + Policy re-keying — a real schema correction, not a feature) → STORY-10 → STORY-11 → STORY-12 (backend, then each platform's F3 enforcement) → STORY-13 and STORY-14 depend on STORY-09 → STORY-15 and STORY-16 are independent of everything else in this phase.
 
 ---
 
@@ -213,3 +215,215 @@ Scope: [implementation-plan.md](./implementation-plan.md)'s §1 tasks, converted
 - Confirm the pipeline doesn't silently skip the test step on a failure elsewhere (a common CI misconfiguration — a build-failure that's swallowed instead of propagated).
 
 **Acceptance:** a CI pipeline that builds + runs the backend self-check on every push — carried directly from implementation-plan.md §1.8's minimum bar for this phase.
+
+---
+
+# Phase 2 — Family Tier Completion (mvp-build-plan.md §4)
+
+Same 2 platforms (Android, Windows) as Phase 1 — this phase is breadth within Family tier, not new platforms. Exit criterion: Family tier matches its full tier spec on Android + Windows.
+
+**Dependency order:** STORY-09 (ChildProfile + Policy re-keying) first — it's a real schema correction, not a feature, and STORY-10/13/14 all build on top of it. STORY-10 → STORY-11 → STORY-12 (backend, then each platform's enforcement). STORY-15 and STORY-16 are independent of everything else in this phase.
+
+---
+
+## STORY-09 — ChildProfile + re-key Policy to child, not device
+**Maps to:** system-architecture-spec.md §3 (unified data model) · mvp-build-plan.md §4 (F7) · **Size:** M · **Depends on:** nothing — this corrects a divergence Phase 1 left behind, the same way implementation-plan.md §0.1 flagged the service-split divergence.
+
+**Analyze**
+- A real gap, not a style preference: Phase 1's `policies` table (migration 002) is `PRIMARY KEY (device_id)` — one device, one policy. system-architecture-spec.md §3 specs `Policy` keyed by `child_profile_id`. F7 (multi-child/multi-device) is exactly the feature that makes this divergence matter: a kid with a phone *and* a laptop should share one set of rules, set once, not two independently-drifting policies.
+- Confirm what actually breaks: `PUT /api/devices/:id/policy` currently upserts per-device. Nothing today lets two devices share a policy row.
+
+**Split into tasks**
+1. Migration: `child_profiles` (id, family_id, name, age_band). `devices` gains `child_profile_id` (nullable at first, for backward migration), nullable-FK to `child_profiles`.
+2. Migration: `policies.child_profile_id` replaces `policies.device_id` as the primary key; a view or join replaces every current `WHERE device_id = $1` policy lookup with `WHERE child_profile_id = (SELECT child_profile_id FROM devices WHERE id = $1)`.
+3. Backend: `POST /api/families/:id/children` (create a child profile), `POST /api/devices` gains a required `child_profile_id` (replacing the bare `platform`-only enrollment — a device is enrolled *for* a child now, not just for a family).
+4. Update `policy.ts`'s GET/PUT to resolve through the device → child_profile join, not `device_id` directly. Device-side agent calls (`GET /api/devices/:id/policy`) keep the same URL shape — the agent doesn't need to know child_profile_id exists, it just asks for "my policy" by device id, same as today.
+
+**Code**
+- This touches `backend/src/routes/policy.ts`, `backend/src/routes/devices.ts`, and adds `backend/src/routes/children.ts` — follow the existing `asyncHandler` + ownership-check pattern (STORY-04), not a new one.
+- `backend/src/test.ts` needs real rework here, not just new assertions appended — every existing policy/events/alerts test currently assumes one device = one policy; update them to create a child profile first, same as STORY-04's rewrite did for the auth flow.
+
+**Test**
+- Two devices under the same child profile: set policy once, confirm both devices' `GET .../policy` return the same version and values.
+- A device with no child profile assigned: confirm policy operations fail cleanly (400, not a crash) — this is a new invalid state that didn't exist before this story.
+
+**Review**
+- The exact bug class to check for: a leftover `WHERE device_id = $1` somewhere in policy.ts or events.ts that nobody updated — grep for every occurrence of `device_id` in those files before calling this done, not just the ones the task list named.
+
+**Acceptance:** two devices belonging to the same child, enrolled separately, share one policy — editing it from either device's perspective (or the dashboard) changes both.
+
+---
+
+## STORY-10 — F3 app control: backend (inventory + allowlist actions)
+**Maps to:** implementation-plan.md's deferred F3 work · feature-list.md F3 · system-architecture-spec.md §3 (`InstalledAppEvent`, `app_control_mode`, `app_allowlist[]`) · **Size:** M · **Depends on:** STORY-09 (policy is child-scoped now, app_allowlist lives on that same `Policy` row).
+
+**Analyze**
+- Re-read family-tier-spec.md §2.1's App control rows precisely — three separable capabilities (install gate, block-from-running, remote uninstall), each with a *different* platform-capability ceiling. Don't build one undifferentiated "block" action; the dashboard and the agent both need to know which of the three they're asking for.
+- feature-list.md's correction (this session's earlier work, commit `207e5a7`): remote uninstall is **not available on any platform** without Fleet-tier MDM. This story does NOT build remote uninstall for Family tier — that would be building past what the platform honestly supports. It builds the install gate and block-from-running only.
+
+**Split into tasks**
+1. Migration: `policies.app_control_mode` (`default_deny` | `notify_only`, default `default_deny`), `policies.app_allowlist` (JSONB array of `{app_id, approved_at, approved_by}`).
+2. Migration: `installed_app_events` (device_id, app_id, install_source, is_approved, detected_at) — the agent reports what it finds installed; the backend doesn't discover this on its own.
+3. Backend: `POST /api/devices/:id/installed-apps` (agent reports inventory, device-channel, unauthenticated — same trust boundary as `events.ts`), `PUT /api/devices/:id/policy/apps` (parent approves/denies a specific `app_id`, authenticated + ownership-checked, same pattern as the main policy PUT).
+4. Admin console: an "Installed apps" panel per device (the prototype's `dashboards.html` Parent tab already mocked this exact table — Approve/Block buttons — build against that, not a new design).
+
+**Code**
+- Reuse `alert_events` for "unapproved app detected" notifications — don't invent a second alert mechanism.
+
+**Test**
+- Agent reports an app not on the allowlist → confirm it shows as "awaiting approval" on the dashboard, not silently dropped.
+- Parent approves it → confirm the agent's next policy pull includes it in `app_allowlist`.
+
+**Review**
+- Ownership check on `PUT /api/devices/:id/policy/apps`, same as STORY-04's policy-editor fix — a device id alone doesn't prove the caller's family owns it.
+
+**Acceptance:** an app reported by the agent as installed-but-unapproved appears on the parent dashboard; approving it there is reflected in the next policy the agent pulls.
+
+---
+
+## STORY-11 — F3 app control: Windows enforcement
+**Maps to:** family-tier-spec.md §2.1 (App control rows, Windows column) · **Size:** L · **Depends on:** STORY-10.
+
+**Analyze**
+- family-tier-spec.md §2.1 is explicit that Windows' install gate only covers Microsoft Store apps (Family Safety's own approval setting) — a sideloaded `.exe`/`.msi` installs outside that gate, a documented gap, not something this story closes. This story builds **inventory + block-from-running** for whatever's actually installed, Store or not; it does not pretend to close the install-gate gap.
+- Decide the block mechanism the same way implementation-plan.md §1.6 decided the DNS-filter approach: research first, record the decision, then build. A real Windows app-block mechanism without Enterprise-edition AppLocker/WDAC (not available on Home/Pro) realistically means a background process watcher that terminates a blocked app's process when detected — this is the smallest-complete thing within what a non-Enterprise Windows install actually allows, same reasoning pattern as choosing DNS filtering over a WFP driver.
+
+**Split into tasks**
+1. `InstalledAppInventory.cs`: enumerate `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall` (and the WOW6432Node equivalent for 32-bit apps) on a timer, diff against the last-reported list, POST new entries to STORY-10's inventory endpoint.
+2. `AppBlockEnforcer.cs`: poll running processes (`System.Diagnostics.Process.GetProcesses()`), terminate (`Process.Kill()`) any process whose executable matches a blocked (not-on-allowlist) app, emit an `alert_events` entry via `EventQueue` (reuse, not a new queue) when it does.
+3. Wire both into `Program.cs`'s existing timer pattern — inventory scan and block-enforcement don't need the same cadence as the 1-minute lockout tick; a slower poll (e.g. every 30s) is enough and cheaper.
+
+**Code**
+- `AppBlockEnforcer` needs the same daily-reset-bug-class review the lockout and DNS filter already got — but this one has no "daily" state at all (blocking is stateless: either a process is on the list or it isn't), so the actual risk here is different: killing a process the user is actively using *every single poll tick* if the kill doesn't actually stop it fast enough, which would look like a crash-loop to the user. Guard: after killing, don't re-attempt for N seconds even if the process respawns immediately, and surface that as its own alert ("app kept restarting after being blocked") rather than silently hammering it.
+
+**Test**
+- Compile-check only (`dotnet build`), same limitation every Windows agent story has had.
+
+**Review**
+- Confirm `Process.Kill()` is wrapped in a try/catch — killing a process you don't have permission to terminate (some system/elevated processes) throws, and an unhandled exception here would take down the whole agent, the exact `d040b88` bug class applied to a new mechanism.
+
+**Acceptance:** an app not on the device's allowlist is detected within one poll cycle and terminated; the agent itself does not crash or infinite-loop if the kill fails or the app relaunches immediately.
+
+---
+
+## STORY-12 — F3 app control: Android enforcement
+**Maps to:** android-agent-spec.md (extends it — F3 wasn't in that doc's original scope, which was F1/F2/consent only) · **Size:** M · **Depends on:** STORY-10, STORY-07 (the Android agent scaffold).
+
+**Analyze**
+- Android has no equivalent of Windows' process-kill for another app without Device Owner privileges (same provisioning-model constraint android-agent-spec.md §1 already explains for lockout). The honest mechanism here is the **same overlay pattern `LockedActivity` already uses** for screen-time lockout: when the Accessibility Service detects a blocked app in the foreground, show the lock overlay immediately, with a message naming the blocked app instead of a time-limit reason. This is "block from running" in the only sense a non-Device-Owner Android app can actually deliver it — the blocked app keeps running in the background, but the user can't interact with it, same honest limitation already written into family-tier-spec.md §2.1's Android row for this exact feature.
+- Inventory: `PackageManager.getInstalledApplications()` is a disclosed, standard API — no permission walk needed beyond what's already granted.
+
+**Split into tasks**
+1. Extend `ThirdEyeAccessibilityService.kt`'s `onAccessibilityEvent` to also check the foreground app's package name against the cached policy's `app_allowlist`, not just the lockout clock.
+2. Reuse `LockedActivity.kt` with a different `reason` string, not a second lock-screen Activity.
+3. A one-time inventory report on service start, using `PackageManager`, POSTed via the same contract STORY-10 defines.
+
+**Code**
+- Same file-reuse discipline android-agent-spec.md §2 already established for this codebase — extend existing classes, don't fork a parallel "app block" path next to the existing lockout path when they're the same overlay mechanism underneath.
+
+**Test**
+- No SDK available in this environment — unverified, same caveat as STORY-07's entire scope. Name it in `agents/android/README.md`'s known-gaps list, don't let it quietly become a different, better-verified story than the rest of this agent.
+
+**Review**
+- Confirm the overlay's `reason` text is honest about what happened ("this app isn't approved yet" vs. implying it's been removed — it hasn't, it's just not usable) — a vague message here is the kind of small dishonesty this product's whole premise argues against.
+
+**Acceptance:** mirrors STORY-11's acceptance criterion conceptually (a non-allowlisted app can't actually be used), via the overlay mechanism instead of a process kill — unverified pending real SDK access, same as the rest of this agent.
+
+---
+
+## STORY-13 — F4 location sharing + geofence alerts
+**Maps to:** feature-list.md F4 · family-tier-spec.md §2.1 (Location row) · **Size:** M · **Depends on:** STORY-09 (geofence rules belong on the child-scoped `Policy`, not per-device).
+
+**Analyze**
+- offline-sync-spec.md §2 already classifies this as "Partial offline" — geofence entry/exit is detected on-device without connectivity, but the parent's alert is deferred until sync. This story builds exactly that split, not a simplified always-online version.
+- family-tier-spec.md §2.1 flags that desktop (Windows) location accuracy varies by hardware and is often Wi-Fi/IP-based only — don't let the UI imply GPS-grade precision on a desktop.
+
+**Split into tasks**
+1. Migration: `location_events` (device_id, lat, lon, geofence_id_nullable, ts, client_event_id) — same idempotent-insert shape as `usage_events`/`alert_events`, reusing STORY-01's event-table pattern, not a new one.
+2. Migration: `policies.geofence_rules` (JSONB array of `{name, lat, lon, radius_meters}`).
+3. Backend: extend `POST /api/devices/:id/events` to accept `location_events` in the same batch, rather than a separate endpoint — it's the same sync call, same idempotency contract.
+4. Windows: native Windows Location API (`Windows.Devices.Geolocation`), polled on a timer; on-device geofence-boundary check against the cached policy (entry/exit detected locally, queued as an `alert_events` entry via the existing `EventQueue`, not a new mechanism).
+5. Android: `FusedLocationProviderClient` (standard, disclosed-permission API), same on-device geofence check logic ported, not redesigned, from Windows'.
+
+**Code**
+- The geofence math (point-in-circle against `radius_meters`) should be one small shared piece of logic, written once per platform in that platform's own language, not two independently-reasoned implementations that could silently disagree on edge cases (a point exactly on the boundary, for instance).
+
+**Test**
+- Backend: post a location event inside and outside a defined geofence, confirm the right boundary-crossing alert fires.
+- Windows: compile-check only. Android: unverified, same caveat as every Android story.
+
+**Review**
+- Confirm location data isn't retained longer than product-spec.md §9's data-minimization principle implies — this is exactly the kind of sensitive data a retention policy matters most for; don't let this story ship without at least a stated (if not yet enforced) retention window, same honesty standard as every other gap in this backlog.
+
+**Acceptance:** a simulated location update crossing a defined geofence boundary produces exactly one alert event, with the parent dashboard showing "arrived at [name]" using the same language family-tier-spec.md §1 names.
+
+---
+
+## STORY-14 — F7 multi-child / multi-device dashboard
+**Maps to:** feature-list.md F7 · **Size:** S · **Depends on:** STORY-09 (the hard model work already happened there — this is the dashboard surface on top of it).
+
+**Analyze**
+- Confirm this really is the lighter story it looks like: STORY-09 already made `Policy` child-scoped and devices child-assigned. What's missing is purely the admin console's ability to show more than one child and switch between them — no new backend data model.
+
+**Split into tasks**
+1. Admin console: a child-switcher (the prototype never mocked this — Phase 1's UI assumed one device per family) above the existing device list, listing each `child_profiles` row.
+2. Device list filters to the selected child's devices; "+ Add device" (STORY-05) now also requires picking which child the new device is for.
+3. "+ Add child" action, wired to STORY-09's `POST /api/families/:id/children`.
+
+**Code**
+- Extends `backend/src/public/index.html` in place — this is UI wiring on an already-correct backend, not new backend work.
+
+**Test**
+- Two children, two devices each: confirm switching the selector shows only that child's devices and policy, never a mix.
+
+**Review**
+- Confirm `GET /api/devices` (STORY-04's family-scoped version) still returns *all* of a family's devices across children — the child-filtering happens client-side on an already-correctly-scoped list, not by changing what the backend returns per-child (that would need a second, narrower endpoint for no real benefit at this data volume).
+
+**Acceptance:** a family with 2 children and 2 devices per child can switch between children on the dashboard and see/edit only that child's own policy and device list.
+
+---
+
+## STORY-15 — Custom content filter lists
+**Maps to:** family-tier-spec.md §2 item 3 ("custom block/allow list") · **Size:** S · **Depends on:** nothing beyond what STORY-06 already built (extends `DnsFilter.cs`, doesn't replace it).
+
+**Analyze**
+- This extends implementation-plan.md §1.6's DNS-filter decision, it doesn't revisit it — custom domains are matched the same way the embedded category sample list already is; this story just makes that list parent-editable instead of hardcoded.
+
+**Split into tasks**
+1. Migration: `policies.custom_blocked_domains` (TEXT[], default empty), `policies.custom_allowed_domains` (TEXT[], default empty — an explicit allow always wins over a category match, for the case a category list over-blocks something a parent wants to permit).
+2. Backend: extend the existing policy PUT/GET to accept/return these two fields — not a new endpoint.
+3. `DnsFilter.cs`: check the custom allow-list first, then the custom block-list, then the embedded category map, in that order — allow overrides category, category is the fallback.
+4. Admin console: add the two list fields to the existing policy editor panel.
+
+**Test**
+- A domain on the custom block list that isn't in any category: confirm it's blocked. A domain in a blocked category but also on the custom allow list: confirm it resolves (allow wins).
+
+**Review**
+- Confirm the precedence order (allow > custom-block > category) is actually what's implemented, not just what's intended — this is exactly the kind of three-way precedence logic that's easy to get backwards in the first pass.
+
+**Acceptance:** custom allow/block lists both take effect, with an explicit allow overriding a category-level block for the same domain.
+
+---
+
+## STORY-16 — Jurisdiction-aware consent gating (groundwork)
+**Maps to:** mvp-build-plan.md §4 ("build the mechanism now since Employer/Fleet reuse it") · employer-tier-spec.md §6 · **Size:** M · **Depends on:** nothing, independent of the rest of this phase.
+
+**Analyze**
+- This is explicitly groundwork — Family tier has few mandatory-notice jurisdictions compared to Employer (employer-tier-spec.md §6), so the mechanism matters more for later phases than for Family tier itself. Build the mechanism generically now, reusably, rather than Family-tier-specific logic that Employer tier (Phase 4) would have to redo.
+- The ai-behavior-analysis-spec.md §6 compliance note already flagged that Employer tier's automated-decision-making needs exactly this kind of jurisdiction gate later — this story is what that note was pointing at.
+
+**Split into tasks**
+1. Migration: `families.jurisdiction` (e.g. ISO country/region code, nullable — not every jurisdiction has a mandatory-notice requirement, so null is a valid "no gate needed" state, not a missing-data error).
+2. Backend: a small jurisdiction → required-notice-features lookup table (data, not code — a jurisdiction's requirements changing shouldn't need a deploy). For Family tier today, this can be nearly empty (most jurisdictions gate location/geofence for minors, per existing disclosure norms) — the mechanism's generality matters more than Family tier's own specific entries.
+3. Enrollment/policy-change flow: before a gated feature (e.g. F4 location) can be enabled for a jurisdiction that requires it, the flow must show the jurisdiction-specific notice and record acceptance — reuses `ConsentRecord`, doesn't invent a parallel consent mechanism.
+
+**Code**
+- Keep this mechanism's API shape generic enough that Employer tier (Phase 4) can hang its own, larger jurisdiction table off the same lookup structure without a rewrite — that's the actual point of building it now.
+
+**Test**
+- A family in a gated jurisdiction attempting to enable a gated feature without the jurisdiction-notice acceptance on file: confirm the request is rejected, not silently allowed with the notice shown after the fact.
+
+**Review**
+- Confirm this doesn't become Family-tier-specific in its implementation even though Family tier is the only caller today — re-read employer-tier-spec.md §6 once more before finishing, specifically checking that nothing here assumes "parent/child" language where "admin/employee" would need the same mechanism later.
+
+**Acceptance:** a gated feature cannot be enabled for a family in a jurisdiction requiring notice until that jurisdiction's specific notice has been shown and accepted, recorded the same way any other consent is recorded.

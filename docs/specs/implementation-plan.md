@@ -6,19 +6,24 @@ For §1's tasks broken into individually pick-up-able stories — each run throu
 
 ## 0. What's Already Built (don't redo this)
 
+**Phase 1 is complete** (development-stories.md STORY-01 through STORY-08):
+
 | Area | What exists | Where |
 |---|---|---|
 | Backend | Express + Postgres, single process (not the microservices split system-architecture-spec.md §2 originally proposed — see §1.0 below) | `backend/` |
-| Data model | `families`, `devices`, `consent_records` (migration 001), `policies` (migration 002) | `backend/migrations/` |
-| API | Enroll (`POST /api/devices`), consent lookup/accept (`GET /api/devices/by-code/:code`, `POST /api/devices/:id/consent`), device list (`GET /api/devices`), policy get/set (`GET`/`PUT /api/devices/:id/policy`) | `backend/src/routes/` |
-| Robustness | Every route wrapped in `asyncHandler`; a bad request returns 400 instead of crashing the process (fixed after it was confirmed to crash live) | `backend/src/asyncHandler.ts`, `backend/src/server.ts` |
-| Self-check | 12 assertions covering enroll → consent → policy versioning, run against a live Podman Postgres | `backend/src/test.ts` |
-| Admin console | A static HTML page listing devices — no login, no policy editor, no real styling | `backend/src/public/index.html` |
-| Windows agent | Tray icon, consent form, F1 lockout (`LockWorkStation()` against a locally-cached policy, daily reset fixed), dev-standalone config path (`#if DEBUG`-gated) | `agents/windows/` |
+| Data model | `families`, `devices`, `consent_records` (001), `policies` + threshold column (002, 004), `usage_events`/`alert_events` (003), `users` (005) | `backend/migrations/` |
+| API | Auth (register via `POST /api/families`, `POST /api/auth/login`, JWT Bearer), enroll, consent lookup/accept, device list (family-scoped), policy get/set (ownership-checked), event batch ingest (idempotent), alerts feed read | `backend/src/routes/` |
+| Robustness | Every route wrapped in `asyncHandler`; a bad request returns 400 instead of crashing the process (confirmed crashing live, then fixed) | `backend/src/asyncHandler.ts`, `backend/src/server.ts` |
+| Stale-device sweep | Scheduled job (X9), flags once per threshold-crossing, clears on real resync | `backend/src/staleDeviceSweep.ts` |
+| Self-check | 30 assertions: enroll → consent → policy versioning → events/idempotency → stale-device → auth negative-paths → alerts | `backend/src/test.ts` |
+| Admin console | Real app: register/login, device list with `needs_attention`, add-device + enrollment code, policy editor, alerts feed | `backend/src/public/index.html` |
+| CI | Postgres service container, migrate, start, readiness-probe, run self-check, on every push | `.github/workflows/backend-ci.yml` |
+| Windows agent | Tray icon, enrollment screen, consent form, F1 lockout (daily-reset bug fixed), F2 local DNS filtering + DoH-disable mitigation, durable event queue (race-condition fixed, thread-safe), dev-standalone config (`#if DEBUG`-gated) | `agents/windows/` |
+| Android agent | Full scaffold per android-agent-spec.md — **never compiled or syntax-checked, no SDK in this environment** | `agents/android/` |
 | Prototypes | Feature map, 4-role dashboard mockup, public marketing site — all static, none wired to the real backend | `prototype/` |
-| Specs | 16 documents, all cross-linked, link-checked | `docs/specs/` |
+| Specs | 18+ documents, all cross-linked, link-checked | `docs/specs/` |
 
-**Not built at all yet:** Android agent, iOS/macOS anything, F2 enforcement (filtering logic itself), F3 enforcement, the local event queue/sync protocol offline-sync-spec.md §3–4 describes, the X9 stale-device sweep job, any CI/signing pipeline, any real admin-console frontend.
+**Not built at all yet:** iOS/macOS anything, F3/F4/F7 (app control enforcement, geofencing, multi-child — see development-stories.md's Phase 2 section), custom content filter lists, jurisdiction-gating, any code-signing/VirusTotal step (CI only runs the self-check so far), anything from Phase 3–5.
 
 ### 0.1 Architecture decision this plan is recording (not proposing)
 
@@ -70,20 +75,20 @@ Ordered by dependency, not by importance — several of these can run in paralle
 ### 1.8 Code signing + CI (av-edr-compliance-spec.md §2, §6)
 - Not blocking for local dev/testing, but mvp-build-plan.md §1 principle #4 says this starts in parallel from day one, not bolted on before launch — it's listed here so it doesn't quietly slip to "later" indefinitely. Minimum for this phase: a CI pipeline that builds + runs `backend/src/test.ts` on every push, with signing/VirusTotal steps added once there's an actual installable artifact to sign.
 
-## 2. Phase 2–5 — Task Groups (lighter detail; revisit at task-level once each phase starts)
+## 2. Phase 2–5 — Task Groups (Phase 2 now expanded; 3-5 stay at pointer-level)
 
-Each phase below is a *pointer*, not a breakdown — writing Phase 4's tasks out in this much detail today would be exactly the kind of premature spec-depth the earlier ponytail review flagged. Expand a phase's section here once mvp-build-plan.md says it's actually starting.
+Phase 1 is complete, so Phase 2 earned its detailed breakdown — see development-stories.md's Phase 2 section (STORY-09 through STORY-16) for the full analyze/split/code/test/review/acceptance treatment. Phase 3–5 stay as pointers below; expanding them now, before Phase 2 is even underway, would be the same premature-depth mistake the earlier ponytail review already caught this spec set making once.
 
-- **Phase 2** (family-tier-spec.md full parity, same 2 platforms): F3 enforcement, F4 geofencing, F7 multi-child, custom content lists **plus the WFP/SNI upgrade to F2 named in §1.6** once the DNS approach's DoH gap is actually costing real users something, the jurisdiction-consent-gating mechanism (built once here, reused by Employer tier in Phase 4).
+- **Phase 2** (family-tier-spec.md full parity, same 2 platforms): a real architecture correction first (`Policy` re-keyed from device to child — STORY-09, since Phase 1's schema diverged from system-architecture-spec.md §3's actual model), then F3 enforcement (STORY-10/11/12), F4 geofencing (STORY-13), F7 multi-child dashboard (STORY-14), custom content filter lists (STORY-15), and the jurisdiction-consent-gating mechanism (STORY-16, built once here, reused by Employer tier in Phase 4). The WFP/SNI upgrade to F2 named in §1.6 stays deferred past even Phase 2 — nothing in development-stories.md's Phase 2 section builds it yet, since the DNS approach's DoH gap hasn't been shown to actually cost real users anything.
 - **Phase 3** (iOS + macOS): net-new platform work against Apple's Family Controls/Screen Time framework — notarization and App Review lead times mean this should start its signing/provisioning track well before the feature code is ready.
 - **Phase 4** (Employer tier + metering goes live): this is where system-architecture-spec.md §2's service split starts to earn its keep for real — Metering & Billing is a genuinely separate concern by this point, unlike Phase 1. Also where ai-behavior-analysis-spec.md and pricing-model-spec.md actually get built, per their own "deferred past Phase 1" framing.
 - **Phase 5** (Fleet/MDM): the MDM protocol integrations (DEP/Android Enterprise/Autopilot) are the long-lead-time item here — same lesson as Phase 3's Apple track, start that provisioning/enrollment-program paperwork early.
 
 ## 3. Immediate Next Steps (pick one, don't parallelize everything on day one)
 
-In order of how much they unblock:
-1. **§1.1 (event queue + sync)** — almost nothing else in this phase is "real" without it.
-2. **§1.2 (enrollment UI)** — small, and removes the "assumes config.json exists" shortcut the Windows agent currently has.
-3. **§1.3 (stale-device sweep)** — small, mechanically straightforward once 1.1's event/sync plumbing exists.
+Phase 1's §1.1–§1.8 are all complete. In order of how much they unblock within Phase 2:
+1. **STORY-09 (ChildProfile + Policy re-keying)** — a real schema correction, not a feature; STORY-10, 13, and 14 all build on top of it.
+2. **STORY-10 (F3 backend)** — unblocks STORY-11 and STORY-12.
+3. **STORY-15 and STORY-16** can start any time — both are independent of STORY-09's schema work and of each other.
 
-§1.4 (auth) should land early alongside 1.1–1.3, since it's closing a live data-exposure gap, not just a feature. §1.5–1.8 can run in parallel with each other and with the above once their dependencies land, but starting all eight at once is how the earlier spec set ended up over-built before any code existed — the same mistake, just moved from documents to tickets.
+STORY-11/12 (per-platform F3 enforcement) and STORY-13/14 should wait on their dependencies rather than starting in parallel with everything else — the same lesson Phase 1 already demonstrated: STORY-09's schema change touches `policy.ts`/`devices.ts` broadly enough that building F3/F4/F7 against the pre-STORY-09 schema would just mean redoing that work once STORY-09 lands.
