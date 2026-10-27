@@ -19,7 +19,9 @@ class ThirdEyeAccessibilityService : AccessibilityService() {
     private lateinit var eventQueue: EventQueue
     private lateinit var enforcer: LockoutEnforcer
     private lateinit var appInventory: InstalledAppInventory
+    private lateinit var locationClient: LocationClient
     private val syncHandler = Handler(Looper.getMainLooper())
+    private val locationHandler = Handler(Looper.getMainLooper())
 
     // STORY-12: debounces repeated lock-overlay launches for the SAME
     // blocked package — without this, every TYPE_WINDOW_STATE_CHANGED
@@ -38,11 +40,13 @@ class ThirdEyeAccessibilityService : AccessibilityService() {
         policyClient = PolicyClient(this, config.backendUrl, config.deviceId)
         eventQueue = EventQueue(this, config.backendUrl, config.deviceId)
         appInventory = InstalledAppInventory(this, config.backendUrl, config.deviceId)
+        locationClient = LocationClient(this, policyClient, eventQueue)
         enforcer = LockoutEnforcer(policyClient, eventQueue, ::showLockedOverlay)
 
         startForegroundNotification()
         Thread { appInventory.report() }.start() // one-time report on start, per android-agent-spec.md's F3 extension
         scheduleSyncLoop()
+        scheduleLocationLoop()
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -99,6 +103,19 @@ class ThirdEyeAccessibilityService : AccessibilityService() {
                 syncHandler.postDelayed(this, 5 * 60 * 1000L)
             }
         }, 5 * 60 * 1000L)
+    }
+
+    // STORY-13: a separate timer from scheduleSyncLoop, same reasoning as
+    // the Windows agent's separate locationTimer — location calls don't
+    // need the 5-minute sync cadence, and mixing it into that loop would
+    // couple two independently-tunable intervals for no benefit.
+    private fun scheduleLocationLoop() {
+        locationHandler.postDelayed(object : Runnable {
+            override fun run() {
+                locationClient.tick()
+                locationHandler.postDelayed(this, 2 * 60 * 1000L)
+            }
+        }, 2 * 60 * 1000L)
     }
 
     private fun startForegroundNotification() {

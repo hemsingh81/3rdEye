@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { Router } from "express";
 import { pool } from "../db/pool.js";
 import { asyncHandler } from "../asyncHandler.js";
@@ -23,10 +24,15 @@ policyRouter.get("/:deviceId/policy", asyncHandler(async (req, res) => {
   // meaning no agent could ever actually know what to block. Added here;
   // app_allowlist is flattened to a plain array of app_id strings (the
   // agent needs the id list for matching, not approved_at/approved_by).
+  // STORY-13: geofence_rules returned as-is (full {id,name,lat,lon,
+  // radius_meters} objects, not flattened like app_allowlist) — the agent
+  // needs the name (for the alert message) and the math inputs, not just
+  // an id list.
   const { rows } = await pool.query(
     `SELECT d.id AS device_id, p.version, p.daily_limit_minutes, p.bedtime_start, p.bedtime_end,
             p.content_filter_categories, p.app_control_mode,
             COALESCE((SELECT jsonb_agg(e->>'app_id') FROM jsonb_array_elements(p.app_allowlist) e), '[]'::jsonb) AS app_allowlist,
+            p.geofence_rules,
             p.updated_at
      FROM policies p
      JOIN devices d ON d.child_profile_id = p.child_profile_id
@@ -44,12 +50,24 @@ policyRouter.get("/:deviceId/policy", asyncHandler(async (req, res) => {
 // editing it from *any* device belonging to that child updates the same
 // row every other of that child's devices will see on their next pull.
 policyRouter.put("/:deviceId/policy", requireAuth, asyncHandler(async (req, res) => {
-  const { daily_limit_minutes, bedtime_start, bedtime_end, content_filter_categories } = req.body ?? {};
+  const { daily_limit_minutes, bedtime_start, bedtime_end, content_filter_categories, geofence_rules } = req.body ?? {};
   if (typeof daily_limit_minutes !== "number" || daily_limit_minutes < 0) {
     return res.status(400).json({ error: "daily_limit_minutes must be a non-negative number" });
   }
   if (!Array.isArray(content_filter_categories) || !content_filter_categories.every((c) => typeof c === "string")) {
     return res.status(400).json({ error: "content_filter_categories must be an array of strings" });
+  }
+  // STORY-13: optional — omitting it keeps whatever's already set, same
+  // "don't require re-sending every field" treatment app_allowlist gets
+  // via its own dedicated endpoint, but geofence_rules is simple enough
+  // (a plain array, no approval workflow) to fold into the main PUT.
+  if (geofence_rules !== undefined) {
+    const validShape = Array.isArray(geofence_rules) && geofence_rules.every(
+      (r) => typeof r?.name === "string" && typeof r?.lat === "number" && typeof r?.lon === "number" && typeof r?.radius_meters === "number",
+    );
+    if (!validShape) {
+      return res.status(400).json({ error: "geofence_rules must be an array of {name, lat, lon, radius_meters}" });
+    }
   }
   // 404, not 403, on an ownership mismatch — this doesn't confirm the
   // device's existence to someone who isn't its owner. Also catches a
@@ -64,21 +82,27 @@ policyRouter.put("/:deviceId/policy", requireAuth, asyncHandler(async (req, res)
   if (device.rows.length === 0) return res.status(404).json({ error: "device not found, or not yet assigned to a child" });
   const childProfileId = device.rows[0].child_profile_id;
 
+  // Assign an id to any new rule (one without one already) — the agent
+  // and the alerts feed both reference a zone by this id.
+  const geofenceRulesWithIds = geofence_rules?.map((r: any) => ({ id: r.id ?? randomUUID(), ...r })) ?? null;
+
   const { rows } = await pool.query(
-    `INSERT INTO policies (child_profile_id, version, daily_limit_minutes, bedtime_start, bedtime_end, content_filter_categories, updated_at)
-     VALUES ($1, 1, $2, $3, $4, $5, now())
+    `INSERT INTO policies (child_profile_id, version, daily_limit_minutes, bedtime_start, bedtime_end, content_filter_categories, geofence_rules, updated_at)
+     VALUES ($1, 1, $2, $3, $4, $5, COALESCE($6::jsonb, '[]'::jsonb), now())
      ON CONFLICT (child_profile_id) DO UPDATE SET
        version = policies.version + 1,
        daily_limit_minutes = EXCLUDED.daily_limit_minutes,
        bedtime_start = EXCLUDED.bedtime_start,
        bedtime_end = EXCLUDED.bedtime_end,
        content_filter_categories = EXCLUDED.content_filter_categories,
+       geofence_rules = COALESCE($6::jsonb, policies.geofence_rules),
        updated_at = now()
-     RETURNING $6::uuid AS device_id, version, daily_limit_minutes, bedtime_start, bedtime_end, content_filter_categories,
+     RETURNING $7::uuid AS device_id, version, daily_limit_minutes, bedtime_start, bedtime_end, content_filter_categories,
        app_control_mode,
        COALESCE((SELECT jsonb_agg(e->>'app_id') FROM jsonb_array_elements(app_allowlist) e), '[]'::jsonb) AS app_allowlist,
+       geofence_rules,
        updated_at`,
-    [childProfileId, daily_limit_minutes, bedtime_start ?? null, bedtime_end ?? null, content_filter_categories, req.params.deviceId],
+    [childProfileId, daily_limit_minutes, bedtime_start ?? null, bedtime_end ?? null, content_filter_categories, geofenceRulesWithIds ? JSON.stringify(geofenceRulesWithIds) : null, req.params.deviceId],
   );
   res.json(rows[0]);
 }));

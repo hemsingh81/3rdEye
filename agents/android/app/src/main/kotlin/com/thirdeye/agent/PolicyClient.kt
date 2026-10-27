@@ -13,6 +13,14 @@ import java.io.IOException
 // array of app_id strings (Android's app_id is the exact package name, no
 // heuristic name-matching needed the way Windows' registry DisplayName
 // required).
+data class GeofenceRule(
+    val id: String,
+    val name: String,
+    val lat: Double,
+    val lon: Double,
+    val radiusMeters: Double,
+)
+
 data class Policy(
     val deviceId: String,
     val version: Int,
@@ -22,6 +30,10 @@ data class Policy(
     val contentFilterCategories: List<String>,
     val appControlMode: String?,
     val appAllowlist: List<String>,
+    // STORY-13: full objects, not flattened like appAllowlist — the agent
+    // needs the name (for the alert message) and the math inputs, not
+    // just an id.
+    val geofenceRules: List<GeofenceRule>,
 ) {
     companion object {
         fun fromJson(json: String): Policy {
@@ -36,6 +48,21 @@ data class Policy(
                 for (i in 0 until allowArr.length()) allowlist.add(allowArr.getString(i))
             }
 
+            val geofences = mutableListOf<GeofenceRule>()
+            val geofenceArr = o.optJSONArray("geofence_rules")
+            if (geofenceArr != null) {
+                for (i in 0 until geofenceArr.length()) {
+                    val g = geofenceArr.getJSONObject(i)
+                    geofences.add(GeofenceRule(
+                        id = g.getString("id"),
+                        name = g.getString("name"),
+                        lat = g.getDouble("lat"),
+                        lon = g.getDouble("lon"),
+                        radiusMeters = g.getDouble("radius_meters"),
+                    ))
+                }
+            }
+
             return Policy(
                 deviceId = o.getString("device_id"),
                 version = o.getInt("version"),
@@ -45,6 +72,7 @@ data class Policy(
                 contentFilterCategories = categories,
                 appControlMode = o.optString("app_control_mode", null),
                 appAllowlist = allowlist,
+                geofenceRules = geofences,
             )
         }
 
@@ -58,6 +86,9 @@ data class Policy(
             o.put("content_filter_categories", p.contentFilterCategories)
             o.put("app_control_mode", p.appControlMode)
             o.put("app_allowlist", p.appAllowlist)
+            o.put("geofence_rules", p.geofenceRules.map {
+                mapOf("id" to it.id, "name" to it.name, "lat" to it.lat, "lon" to it.lon, "radius_meters" to it.radiusMeters)
+            })
             return o.toString()
         }
     }

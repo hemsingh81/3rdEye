@@ -11,6 +11,13 @@
         tools:ignore="ProtectedPermissions" xmlns:tools="http://schemas.android.com/tools" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- STORY-13: F4 — ACCESS_COARSE_LOCATION is Android's own "good enough
+         for geofence-scale accuracy" permission; ACCESS_FINE_LOCATION is
+         requested too since a parent may reasonably expect tighter
+         accuracy, but the feature degrades to coarse rather than failing
+         if only that's granted. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
     <application
         android:label="3rdEye"

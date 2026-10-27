@@ -1,4 +1,4 @@
-# 3rdEye Android Agent — Phase 1 (F1/consent) + Phase 2 F3 (STORY-12)
+# 3rdEye Android Agent — Phase 1 (F1/consent) + Phase 2 F3/F4
 
 Covers the same Phase 1 scope as `agents/windows/`, mapped onto Android's
 actual mechanisms per [android-agent-spec.md](../../docs/specs/android-agent-spec.md):
@@ -63,6 +63,27 @@ compiler or IDE.
   respawn-guard reasoning as the Windows `AppBlockEnforcer`'s kill
   debounce, applied to relaunching an Activity instead of killing a
   process.
+- `GeofenceMath.kt` — STORY-13's F4 point-in-circle math (Haversine),
+  the same formula as the Windows agent's `GeofenceMath.cs`, written
+  once per platform in its own language, kept identical so the two can't
+  silently disagree on an edge case.
+- `LocationClient.kt` — `FusedLocationProviderClient` (standard Play
+  services API), polled by `ThirdEyeAccessibilityService`'s own
+  2-minute `locationHandler` loop (separate from the 5-minute sync
+  loop, same reasoning as the Windows agent's separate `locationTimer`).
+  Checks the result against the cached policy's `geofence_rules`
+  on-device and queues both a location history event and, on an actual
+  zone entry/exit, a normal alert through the same `EventQueue` the
+  rest of the agent already uses.
+- `MainActivity.kt`'s permission walk now asks for
+  `ACCESS_COARSE_LOCATION`/`ACCESS_FINE_LOCATION` first, via a normal
+  runtime-permission dialog (not a Settings redirect like Usage
+  Access/Accessibility). Review catch before this shipped: the first
+  version re-checked the permission on every call to
+  `promptForPermissionsIfNeeded`, so a denial would immediately
+  re-request from `onRequestPermissionsResult` — a request loop. Fixed
+  with a `locationAsked` flag so a denial is respected for the session
+  and the walk moves on to the next step instead.
 
 ## Known shortcuts and gaps (named, not silently skipped)
 
@@ -91,7 +112,11 @@ compiler or IDE.
   its own UI wiring for the same case.
 - No automated test exists for any of this — there's no way to run one
   without the SDK this environment lacks. The acceptance criteria from
-  development-stories.md STORY-07 and STORY-12 are both **unverified**.
+  development-stories.md STORY-07, STORY-12, and STORY-13 are all
+  **unverified**.
+- `LocationClient`'s 2-minute poll interval is a judgment call, same as
+  the Windows agent's, not a validated battery/accuracy tradeoff on real
+  hardware.
 - STORY-12's install-gate half (preventing the install in the first
   place) is **not built** — only block-from-running. Android's own
   install-gate is the Play Store's own approval setting (family-tier-

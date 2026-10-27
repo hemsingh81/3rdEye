@@ -88,6 +88,15 @@ internal static class Program
         };
         appControlTimer.Start();
 
+        // STORY-13: F4 location + geofence — a slower poll than lockout
+        // (location hardware/OS calls are comparatively expensive; a
+        // 2-minute cadence is enough for "arrived at school," not meant
+        // for real-time tracking).
+        var locationClient = new LocationClient(policyClient, eventQueue);
+        var locationTimer = new System.Windows.Forms.Timer { Interval = 2 * 60 * 1000 };
+        locationTimer.Tick += async (_, _) => await locationClient.TickAsync();
+        locationTimer.Start();
+
         var enforceTimer = new System.Windows.Forms.Timer { Interval = 60 * 1000 };
         enforceTimer.Tick += (_, _) => enforcer.Tick();
         enforceTimer.Start();

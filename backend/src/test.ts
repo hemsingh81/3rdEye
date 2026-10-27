@@ -226,6 +226,42 @@ async function main() {
   });
   assert(blockOrphan.status === 404, "a device with no child assigned can't have its app-allowlist edited either (same guard as the main policy PUT)");
 
+  // --- STORY-13: F4 location + geofence alerts ---
+  const setGeofence = await authedFetch(token, `/api/devices/${device.id}/policy`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      daily_limit_minutes: 60,
+      content_filter_categories: ["adult", "violence", "gambling"],
+      geofence_rules: [{ name: "School", lat: 37.421998, lon: -122.084, radius_meters: 150 }],
+    }),
+  }).then((r) => r.json());
+  assert(Array.isArray(setGeofence.geofence_rules) && setGeofence.geofence_rules.length === 1, "geofence rule saved");
+  assert(setGeofence.geofence_rules[0].name === "School", "geofence rule name saved correctly");
+  const schoolGeofenceId = setGeofence.geofence_rules[0].id;
+  assert(typeof schoolGeofenceId === "string", "a new geofence rule gets an id assigned");
+
+  const policyPullHasGeofence = await fetch(`${base}/api/devices/${device.id}/policy`).then((r) => r.json());
+  assert(policyPullHasGeofence.geofence_rules[0].radius_meters === 150, "policy pull exposes the full geofence rule (name/lat/lon/radius) for the agent's on-device math");
+
+  // Device-channel: the agent itself detects entry/exit on-device and
+  // reports both a location_event (history) and a normal alert_event
+  // ("Arrived at: School") through the same batch — no new alert
+  // mechanism, reusing STORY-01's events endpoint.
+  const postLocationEvents = await fetch(`${base}/api/devices/${device.id}/events`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      location_events: [{ client_event_id: `test-loc-${Date.now()}`, lat: 37.421998, lon: -122.084, geofence_id: schoolGeofenceId, ts: new Date().toISOString() }],
+      alert_events: [{ client_event_id: `test-geofence-${Date.now()}`, type: "geofence_entry", message: "Arrived at: School", ts: new Date().toISOString() }],
+    }),
+  }).then((r) => r.json());
+  assert(postLocationEvents.location_events_inserted === 1, "location event accepted (device-channel, no auth required)");
+  assert(postLocationEvents.alert_events_inserted === 1, "the geofence entry alert is accepted through the same batch, no new mechanism");
+
+  const geofenceAlertFeed = await authedFetch(token, `/api/devices/${device.id}/alerts`).then((r) => r.json());
+  assert(geofenceAlertFeed.some((a: any) => a.type === "geofence_entry" && a.message === "Arrived at: School"), "the geofence entry shows up in the parent dashboard's alerts feed, same language family-tier-spec.md §1 uses");
+
   // --- STORY-01: event queue + sync protocol (device-channel, unauthenticated) ---
   const now = new Date();
   const fiveMinAgo = new Date(now.getTime() - 5 * 60 * 1000);
@@ -253,8 +289,11 @@ async function main() {
   assert(afterEvents.find((d: any) => d.id === device.id)?.last_synced_at !== null, "last_synced_at updated after event flush");
 
   // --- STORY-05: alerts feed read endpoint ---
+  // STORY-13 posted a geofence_entry alert to this same device earlier in
+  // this run, so this is no longer the only alert — check for presence,
+  // not an exact count.
   const alertsFeed = await authedFetch(token, `/api/devices/${device.id}/alerts`).then((r) => r.json());
-  assert(alertsFeed.length === 1 && alertsFeed[0].type === "daily_limit_reached", "alerts feed returns the posted alert event");
+  assert(alertsFeed.some((a: any) => a.type === "daily_limit_reached"), "alerts feed returns the posted alert event");
 
   const alertsForbidden = await authedFetch(otherToken, `/api/devices/${device.id}/alerts`);
   assert(alertsForbidden.status === 404, "a different family's token cannot read this device's alerts");

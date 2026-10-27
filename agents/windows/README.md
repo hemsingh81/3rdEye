@@ -1,8 +1,17 @@
-# 3rdEye Windows Agent — Phase 1 (F1/F2/consent) + Phase 2 F3 enforcement
+# 3rdEye Windows Agent — Phase 1 (F1/F2/consent) + Phase 2 F3/F4
 
 A visible tray agent enforcing screen-time/bedtime lockout (F1), local
-DNS-based content filtering (F2), and app control (F3, STORY-11) from a
-locally-cached `Policy` — no per-app screen-time limits yet.
+DNS-based content filtering (F2), app control (F3, STORY-11), and
+location/geofence alerts (F4, STORY-13) from a locally-cached `Policy` —
+no per-app screen-time limits yet.
+
+Targets `net8.0-windows10.0.19041.0` (bumped from plain `net8.0-windows`
+for STORY-13 — `Windows.Devices.Geolocation` is a WinRT API and needs a
+versioned Windows SDK target to resolve). This actually compiled cleanly
+via `dotnet build` in this (non-Windows) environment, including the WinRT
+reference — a stronger compile-check guarantee than expected, though
+still never run against real location hardware or a real OS permission
+prompt.
 
 **This was written on a Mac and has never been built or run.** There's no
 Windows/.NET toolchain in this environment to compile or test it — per
@@ -66,6 +75,19 @@ Conditioner-equivalent on Windows is Clumsy, per that doc).
   limitation, not a guaranteed-correct mapping. Includes a respawn guard:
   debounces repeated kill attempts and gives up (with one alert, not a
   spam loop) after 3 consecutive respawns rather than fighting forever.
+- `GeofenceMath.cs` — STORY-13's point-in-circle math (Haversine
+  distance), written once here and once in the Android agent's own
+  language — not shared code, but the same formula, so the two platforms
+  can't silently disagree on an edge case.
+- `LocationClient.cs` — polls `Geolocator.GetGeopositionAsync()` every
+  2 minutes, checks the result against the cached policy's
+  `geofence_rules` on-device (zero round-trip), and queues both a
+  location history event and, on an actual zone entry/exit, a normal
+  alert through the same `EventQueue` the lockout/DNS-filter/app-control
+  features already use — no new alert mechanism. Requests location
+  access once per run via `Geolocator.RequestAccessAsync()`, same
+  explicit-permission-walk discipline the Android agent's `UsageStatsManager`
+  request already follows — never assumed silently granted.
 
 ## Known shortcuts in this slice (upgrade later, don't build around now)
 
@@ -97,3 +119,9 @@ Conditioner-equivalent on Windows is Clumsy, per that doc).
   tier-spec.md §2.1's known gap) — `AppBlockEnforcer` only catches an
   unapproved app once it's already running, never prevents the install
   itself for anything outside the Microsoft Store's own approval setting.
+- `LocationClient`'s 2-minute poll interval is a judgment call, not a
+  spec'd number — "arrived at school" doesn't need second-level
+  precision, but this hasn't been validated against real battery/
+  accuracy tradeoffs on actual hardware. family-tier-spec.md §2.1's own
+  caveat applies directly: desktop location accuracy varies by hardware
+  and is often Wi-Fi/IP-based only, never claimed as GPS-grade here.

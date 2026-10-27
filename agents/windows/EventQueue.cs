@@ -13,13 +13,17 @@ namespace ThirdEyeAgent;
 public class EventQueue
 {
     private record QueuedEvent(
-        [property: JsonPropertyName("kind")] string Kind, // "usage" | "alert"
+        [property: JsonPropertyName("kind")] string Kind, // "usage" | "alert" | "location"
         [property: JsonPropertyName("client_event_id")] string ClientEventId,
         [property: JsonPropertyName("type")] string? Type,
         [property: JsonPropertyName("message")] string? Message,
         [property: JsonPropertyName("ts")] string? Ts,
         [property: JsonPropertyName("start_ts")] string? StartTs,
-        [property: JsonPropertyName("end_ts")] string? EndTs
+        [property: JsonPropertyName("end_ts")] string? EndTs,
+        // STORY-13
+        [property: JsonPropertyName("lat")] double? Lat = null,
+        [property: JsonPropertyName("lon")] double? Lon = null,
+        [property: JsonPropertyName("geofence_id")] string? GeofenceId = null
     );
 
     private readonly string _queuePath;
@@ -55,6 +59,14 @@ public class EventQueue
     public void EnqueueUsage(DateTime startTs, DateTime endTs)
     {
         Append(new QueuedEvent("usage", Guid.NewGuid().ToString(), null, null, null, startTs.ToUniversalTime().ToString("o"), endTs.ToUniversalTime().ToString("o")));
+    }
+
+    // STORY-13: the location history log — the human-facing geofence
+    // entry/exit alert is a separate EnqueueAlert call, not derived from
+    // this; LocationClient decides on-device which (if any) it needs.
+    public void EnqueueLocation(double lat, double lon, string? geofenceId)
+    {
+        Append(new QueuedEvent("location", Guid.NewGuid().ToString(), null, null, DateTime.UtcNow.ToString("o"), null, null, lat, lon, geofenceId));
     }
 
     private void Append(QueuedEvent evt)
@@ -135,10 +147,18 @@ public class EventQueue
             message = e.Message,
             ts = e.Ts,
         });
+        var locationEvents = events.Where(e => e.Kind == "location").Select(e => new
+        {
+            client_event_id = e.ClientEventId,
+            lat = e.Lat,
+            lon = e.Lon,
+            geofence_id = e.GeofenceId,
+            ts = e.Ts,
+        });
 
         try
         {
-            var response = await _http.PostAsJsonAsync($"/api/devices/{_deviceId}/events", new { usage_events = usageEvents, alert_events = alertEvents });
+            var response = await _http.PostAsJsonAsync($"/api/devices/{_deviceId}/events", new { usage_events = usageEvents, alert_events = alertEvents, location_events = locationEvents });
             if (!response.IsSuccessStatusCode)
             {
                 RequeueSnapshot(snapshotPath);

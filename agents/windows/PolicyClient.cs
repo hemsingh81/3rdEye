@@ -17,7 +17,19 @@ public record Policy(
     // policy.ts; app_allowlist arrives as a flat array of app_id strings
     // (approved_at/approved_by aren't needed for matching).
     [property: JsonPropertyName("app_control_mode")] string? AppControlMode,
-    [property: JsonPropertyName("app_allowlist")] string[]? AppAllowlist
+    [property: JsonPropertyName("app_allowlist")] string[]? AppAllowlist,
+    // STORY-13: full objects, not flattened like AppAllowlist — the agent
+    // needs the name (for the alert message) and the math inputs
+    // (lat/lon/radius), not just an id.
+    [property: JsonPropertyName("geofence_rules")] GeofenceRule[]? GeofenceRules
+);
+
+public record GeofenceRule(
+    [property: JsonPropertyName("id")] string Id,
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("lat")] double Lat,
+    [property: JsonPropertyName("lon")] double Lon,
+    [property: JsonPropertyName("radius_meters")] double RadiusMeters
 );
 
 // offline-sync-spec.md §4: on connectivity, pull policy first, cache it

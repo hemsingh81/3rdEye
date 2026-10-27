@@ -44,4 +44,9 @@ dependencies {
     implementation("androidx.security:security-crypto:1.1.0-alpha06") // EncryptedSharedPreferences
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.appcompat:appcompat:1.7.0")
+    // STORY-13: F4 location — Google Play services' fused location API,
+    // the standard Android mechanism (android-agent-spec.md didn't name
+    // it originally since F4 wasn't in that doc's scope; same "disclosed,
+    // standard API" bar as UsageStatsManager/PackageManager elsewhere).
+    implementation("com.google.android.gms:play-services-location:21.3.0")
 }

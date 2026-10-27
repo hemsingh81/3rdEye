@@ -1,14 +1,18 @@
 package com.thirdeye.agent
 
+import android.Manifest
 import android.app.Activity
 import android.app.AppOpsManager
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.provider.Settings
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
@@ -20,6 +24,7 @@ import org.json.JSONObject
 // enforce anything.
 class MainActivity : Activity() {
     private val http = OkHttpClient()
+    private var locationAsked = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -92,8 +97,26 @@ class MainActivity : Activity() {
     // service both require a system settings screen the app cannot
     // auto-navigate past — this is the explicit "now go grant this
     // permission" step, with its own plain-language reason, not an
-    // assumption either is silently available after consent.
+    // assumption either is silently available after consent. STORY-13
+    // adds location as a third step — a normal runtime permission
+    // dialog, not a Settings redirect like the other two.
     private fun promptForPermissionsIfNeeded() {
+        // Review catch: an earlier version re-checked hasLocationPermission()
+        // every call, so a denial would immediately re-request on the very
+        // next call from onRequestPermissionsResult — a request-loop, the
+        // same bug class as every other "re-fire every tick" mistake caught
+        // elsewhere in this repo. locationAsked tracks "asked this
+        // session" so a denial is respected and the walk moves on, rather
+        // than re-prompting immediately.
+        if (!hasLocationPermission() && !locationAsked) {
+            locationAsked = true
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION),
+                REQUEST_LOCATION,
+            )
+            return
+        }
         if (!hasUsageStatsPermission()) {
             Toast("3rdEye needs Usage Access to enforce screen-time limits. Opening settings…")
             startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
@@ -106,6 +129,21 @@ class MainActivity : Activity() {
         }
         finish() // enforcement runs entirely in ThirdEyeAccessibilityService from here on
     }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQUEST_LOCATION) {
+            // Continue the walk regardless of the answer — granted or
+            // denied, locationAsked is already true, so this moves on to
+            // the next step instead of re-prompting. A denial means F4
+            // simply won't have a location to report; it never pretends.
+            promptForPermissionsIfNeeded()
+        }
+    }
+
+    private fun hasLocationPermission(): Boolean =
+        ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
 
     private fun hasUsageStatsPermission(): Boolean {
         val appOps = getSystemService(AppOpsManager::class.java)
@@ -122,5 +160,6 @@ class MainActivity : Activity() {
 
     companion object {
         private const val REQUEST_CONSENT = 1
+        private const val REQUEST_LOCATION = 2
     }
 }

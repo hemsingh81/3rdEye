@@ -46,6 +46,20 @@ class EventQueue(private val context: Context, private val backendUrl: String, p
         })
     }
 
+    // STORY-13: the location history log — the human-facing geofence
+    // entry/exit alert is a separate enqueueAlert call, not derived from
+    // this; LocationClient decides on-device which (if any) it needs.
+    fun enqueueLocation(lat: Double, lon: Double, geofenceId: String?) {
+        append(JSONObject().apply {
+            put("kind", "location")
+            put("client_event_id", UUID.randomUUID().toString())
+            put("lat", lat)
+            put("lon", lon)
+            put("geofence_id", geofenceId)
+            put("ts", isoNow())
+        })
+    }
+
     private fun append(evt: JSONObject) {
         lock.lock()
         try {
@@ -75,6 +89,7 @@ class EventQueue(private val context: Context, private val backendUrl: String, p
 
         val usageEvents = JSONArray()
         val alertEvents = JSONArray()
+        val locationEvents = JSONArray()
         for (line in lines) {
             val evt = JSONObject(line)
             when (evt.getString("kind")) {
@@ -89,12 +104,20 @@ class EventQueue(private val context: Context, private val backendUrl: String, p
                     put("message", evt.optString("message", null))
                     put("ts", evt.getString("ts"))
                 })
+                "location" -> locationEvents.put(JSONObject().apply {
+                    put("client_event_id", evt.getString("client_event_id"))
+                    put("lat", evt.getDouble("lat"))
+                    put("lon", evt.getDouble("lon"))
+                    put("geofence_id", evt.optString("geofence_id", null))
+                    put("ts", evt.getString("ts"))
+                })
             }
         }
 
         val body = JSONObject().apply {
             put("usage_events", usageEvents)
             put("alert_events", alertEvents)
+            put("location_events", locationEvents)
         }.toString().toRequestBody("application/json".toMediaType())
 
         return try {
