@@ -1,0 +1,77 @@
+name: Backend CI
+
+# STORY-08 (development-stories.md) / implementation-plan.md §1.8: the
+# minimum bar av-edr-compliance-spec.md §6 names for this phase — build +
+# run backend/src/test.ts on every push. Signing/VirusTotal steps are
+# explicitly NOT added here yet; there's no installable agent artifact to
+# sign until the Windows/Android agents actually build in CI, which needs
+# their own toolchain setup (dotnet build / gradlew) as a separate,
+# follow-up workflow, not bundled into this one speculatively.
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  self-check:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: 3rdeye
+          POSTGRES_PASSWORD: 3rdeye
+          POSTGRES_DB: 3rdeye
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U 3rdeye"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgres://3rdeye:3rdeye@localhost:5432/3rdeye
+      BASE_URL: http://localhost:8097
+      PORT: 8097
+      JWT_SECRET: ci-only-insecure-secret
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Run migrations
+        working-directory: backend
+        run: npm run migrate
+
+      - name: Start backend
+        working-directory: backend
+        run: npm start &
+
+      - name: Wait for backend to be ready
+        run: |
+          # /api/devices with no token returns 401 once the server is up —
+          # that's a real response from our app, not "connection refused,"
+          # so it's a valid readiness signal even unauthenticated.
+          for i in $(seq 1 15); do
+            http_status="$(curl -s -o /dev/null -w '%{http_code}' "$BASE_URL/api/devices" || echo 000)"
+            if [ "$http_status" = "401" ]; then
+              echo "Backend is up."
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Backend never became ready." >&2
+          exit 1
+
+      - name: Run self-check
+        working-directory: backend
+        run: npm test
