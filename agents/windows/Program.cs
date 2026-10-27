@@ -10,14 +10,13 @@ internal static class Program
         var config = LocalConfig.Load();
         if (config is null)
         {
-            // No local config at all means this copy was never enrolled —
-            // out of scope for this slice (enrollment-code entry UI comes
-            // with it); for now, assume Phase 0's enroll API already ran
-            // and a config.json was dropped alongside the install.
-            MessageBox.Show(
-                "3rdEye isn't enrolled on this device yet. Run enrollment first.",
-                "3rdEye", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            return;
+            // STORY-02: no local config means this copy was never enrolled —
+            // ask for the enrollment code the parent generated from the
+            // dashboard, in the same order family-tier-spec.md §3.1-3.2 lays
+            // out: enroll, then consent, then enforcement starts.
+            using var enrollment = new EnrollmentForm();
+            if (enrollment.ShowDialog() != DialogResult.OK || enrollment.EnrolledConfig is null) return;
+            config = enrollment.EnrolledConfig;
         }
 
         var policyClient = new PolicyClient(config.BackendUrl, config.DeviceId, config.LocalDataDir);

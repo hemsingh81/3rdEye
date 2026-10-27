@@ -22,8 +22,13 @@ Conditioner-equivalent on Windows is Clumsy, per that doc).
 
 ## What's here
 
-- `Program.cs` — entry point: loads local config, shows consent once,
-  starts the tray icon (non-hideable, per X1) and the lockout/sync timers.
+- `Program.cs` — entry point: loads local config (running `EnrollmentForm`
+  first if there isn't one yet), shows consent once, starts the tray icon
+  (non-hideable, per X1) and the lockout/sync timers.
+- `EnrollmentForm.cs` — STORY-02's enrollment screen: backend URL +
+  enrollment code → `GET /api/devices/by-code/:code` → writes `LocalConfig`.
+  Shown before `ConsentForm`, same order family-tier-spec.md §3.1-3.2 lays
+  out.
 - `LockoutEnforcer.cs` — compares elapsed usage + current time against the
   cached `Policy` and calls `LockWorkStation()` (a documented Win32 API,
   the same action as Win+L) when the limit or bedtime window is hit.
@@ -51,8 +56,6 @@ Conditioner-equivalent on Windows is Clumsy, per that doc).
   thing for Phase 1's single-device, single-queue case (development-
   stories.md STORY-01). Upgrade to SQLite once multiple writers or a real
   query need shows up, not before.
-- No enrollment UI — assumes `config.json` already exists from a Phase 0
-  enroll flow run elsewhere; building that screen is separate, smaller work.
 - F2 (content filtering) is in the cached `Policy` shape but nothing in
   this code enforces it yet — that needs a Network Extension-equivalent
   (a WFP callout driver or proxy), which is real platform work, not a
