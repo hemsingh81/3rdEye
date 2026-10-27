@@ -54,6 +54,23 @@
   .final-cta p { margin: 0 0 22px; color: #D9E4F2; }
   .final-cta .btn-primary { background: white; color: var(--navy); }
 
+  .badges { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin-top: 8px; }
+  .badge { display: inline-flex; align-items: center; gap: 8px; background: #111; color: white; padding: 10px 18px; border-radius: 10px; font-size: 13px; font-weight: 600; }
+  .badge.disabled { background: #D8D5CC; color: #777; cursor: default; }
+
+  .testimonial { max-width: 640px; margin: 0 auto; text-align: center; background: white; border: 1px solid #E5E3DD; border-radius: 16px; padding: 32px; }
+  .testimonial p { font-size: 17px; color: #333; font-style: italic; margin: 0 0 14px; }
+  .testimonial .who { font-size: 13px; color: #888; }
+  .testimonial .ph-note { margin-top: 16px; font-size: 12px; color: #B4530A; background: #FDF0E3; display: inline-block; padding: 4px 10px; border-radius: 999px; }
+
+  .faq { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+  .faq-item { background: white; border: 1px solid #E5E3DD; border-radius: 10px; padding: 16px 18px; cursor: pointer; }
+  .faq-item h4 { margin: 0; font-size: 15px; display: flex; justify-content: space-between; align-items: center; }
+  .faq-item .answer { font-size: 14px; color: #555; margin-top: 10px; display: none; line-height: 1.5; }
+  .faq-item.open .answer { display: block; }
+  .faq-item .chev { transition: transform 0.15s; }
+  .faq-item.open .chev { transform: rotate(180deg); }
+
   footer { border-top: 1px solid #E5E3DD; padding: 32px 0; font-size: 13px; color: #888; }
   .footlinks { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; margin-bottom: 10px; }
   .footlinks a { color: #666; }
@@ -143,6 +160,48 @@
   </div>
 </section>
 
+<section id="download" class="wrap">
+  <h2 class="section-title">Get the app</h2>
+  <p class="section-sub">One account, every device your family uses.</p>
+  <div class="badges">
+    <a class="badge" href="#" aria-label="Download on Google Play"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 3l18 9-18 9z"/></svg> Google Play</a>
+    <a class="badge" href="#" aria-label="Available on the Microsoft Store"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="3" y="3" width="8" height="8"/><rect x="13" y="3" width="8" height="8"/><rect x="3" y="13" width="8" height="8"/><rect x="13" y="13" width="8" height="8"/></svg> Microsoft Store</a>
+    <a class="badge disabled" aria-disabled="true" title="iOS support ships in Phase 3, per mvp-build-plan.md">App Store — coming soon</a>
+    <a class="badge disabled" aria-disabled="true" title="macOS support ships in Phase 3, per mvp-build-plan.md">Mac App Store — coming soon</a>
+  </div>
+</section>
+
+<section id="testimonials" class="wrap">
+  <h2 class="section-title">What beta parents are saying</h2>
+  <div class="testimonial">
+    <p>"My daughter actually trusts this more than the last app we used, because she can see exactly what I see. That alone was worth switching."</p>
+    <div class="who">— Beta parent, Family tier pilot</div>
+    <div class="ph-note">Placeholder — replace with a real pilot quote before public launch</div>
+  </div>
+</section>
+
+<section id="faq" class="wrap">
+  <h2 class="section-title">Frequently asked questions</h2>
+  <div class="faq">
+    <div class="faq-item" data-faq>
+      <h4>Can my child tell I'm monitoring them? <span class="chev">&#9660;</span></h4>
+      <div class="answer">Yes, always. The 3rdEye icon is permanently visible on their device, and they see the same tracked-categories list you do, live — there's no way to run this invisibly, by design.</div>
+    </div>
+    <div class="faq-item" data-faq>
+      <h4>What happens if my child uninstalls the app? <span class="chev">&#9660;</span></h4>
+      <div class="answer">You get an immediate alert that the agent was removed — it's never silent. Depending on your policy, certain features (like school Wi-Fi access) can require re-enrollment.</div>
+    </div>
+    <div class="faq-item" data-faq>
+      <h4>Will the price change after the beta? <span class="chev">&#9660;</span></h4>
+      <div class="answer">Yes — we'll move to a usage-based model later, but you'll see the new pricing clearly before it applies to you. No surprise charges.</div>
+    </div>
+    <div class="faq-item" data-faq>
+      <h4>Does this work if my child's device has no internet connection? <span class="chev">&#9660;</span></h4>
+      <div class="answer">Screen time lockout, content filtering, and app blocking all keep working offline — they're enforced on the device itself. Syncing to your dashboard happens once the device reconnects.</div>
+    </div>
+  </div>
+</section>
+
 <section class="wrap">
   <div class="final-cta">
     <h2>Set it up in under five minutes.</h2>
@@ -162,6 +221,12 @@
     <div style="text-align: center">&copy; 2026 3rdEye. Beta — Family tier only, Android &amp; Windows.</div>
   </div>
 </footer>
+
+<script>
+  document.querySelectorAll('[data-faq]').forEach((item) => {
+    item.addEventListener('click', () => item.classList.toggle('open'));
+  });
+</script>
 
 </body>
 </html>

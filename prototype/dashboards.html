@@ -25,6 +25,15 @@
   .panel.active { display: flex; }
   .child-card { max-width: 480px; margin: 0 auto; background: white; border: 1px solid #E5E3DD; border-radius: 16px; padding: 28px; display: flex; flex-direction: column; gap: 16px; }
   .row { display: flex; align-items: center; gap: 10px; border-radius: 10px; padding: 12px 14px; font-size: 14px; }
+  .subtabs { display: flex; gap: 4px; border-bottom: 1px solid #E5E3DD; margin-bottom: 4px; }
+  .subtabs button { padding: 10px 4px; margin-right: 20px; border: none; background: transparent; font-size: 13px; font-weight: 600; color: #888; border-bottom: 2px solid transparent; }
+  .subtabs button.sub-active { color: #1D4E89; border-bottom-color: #1D4E89; }
+  .subpanel { display: none; flex-direction: column; gap: 20px; }
+  .subpanel.sub-active { display: flex; }
+  .policy-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #F0EFEA; font-size: 14px; }
+  .policy-row label { min-width: 160px; color: #444; }
+  .policy-val { font-size: 13px; color: #333; font-weight: 600; }
+  .toggle-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; font-size: 14px; border-bottom: 1px solid #F0EFEA; }
 </style>
 </head>
 <body>
@@ -45,6 +54,13 @@
 
   <!-- Parent dashboard -->
   <div class="panel active" data-panel="0">
+    <div class="subtabs">
+      <button class="sub-active" data-subtab="overview">Overview</button>
+      <button data-subtab="policy">Policy editor</button>
+      <button data-subtab="billing">Billing</button>
+      <button data-subtab="alerts">Alert settings</button>
+    </div>
+    <div class="subpanel sub-active" data-subpanel="overview">
     <div class="grid3">
       <div class="card"><div class="stat">Today — Emma's iPad</div><div class="statval">1h 42m <span style="font-size: 14px; color: #888; font-weight: 400">/ 2h limit</span></div></div>
       <div class="card"><div class="stat">Today — Jack's Windows PC</div><div class="statval" style="color: #B4530A">Locked <span style="font-size: 14px; color: #888; font-weight: 400">— limit reached</span></div></div>
@@ -99,6 +115,63 @@
         <tr><td>Emma</td><td>iOS (iPad)</td><td style="color: #0A7A2F">Active</td><td>2 minutes ago</td></tr>
         <tr><td>Jack</td><td>Windows</td><td style="color: #B4530A">Locked</td><td>Just now</td></tr>
       </table>
+    </div>
+    </div>
+
+    <!-- Policy editor -->
+    <div class="subpanel" data-subpanel="policy">
+      <div class="card">
+        <div style="font-size: 15px; font-weight: 700; margin-bottom: 14px">Policy editor — Emma</div>
+        <div class="policy-row">
+          <label>Daily screen time limit</label>
+          <input type="range" min="0" max="6" step="0.5" value="2">
+          <span class="policy-val">2h</span>
+        </div>
+        <div class="policy-row">
+          <label>Bedtime window</label>
+          <span class="policy-val" style="margin-left: auto">9:00 PM – 7:00 AM</span>
+        </div>
+        <div class="policy-row">
+          <label>Content filter</label>
+          <span class="policy-val" style="margin-left: auto">Adult, violence, gambling blocked</span>
+        </div>
+        <div class="policy-row">
+          <label>App install mode</label>
+          <span class="policy-val" style="margin-left: auto; color: #0A7A2F">Default-deny (approval required)</span>
+        </div>
+        <button style="margin-top: 14px; padding: 9px 16px; border-radius: 7px; border: none; background: #1D4E89; color: white; font-size: 13px; font-weight: 600">Save policy</button>
+        <div style="font-size: 12px; color: #999; margin-top: 8px">Changes here show Emma a re-consent screen before they take effect.</div>
+      </div>
+    </div>
+
+    <!-- Billing -->
+    <div class="subpanel" data-subpanel="billing">
+      <div class="grid3">
+        <div class="card"><div class="stat">Current plan</div><div class="statval" style="font-size: 18px">Family — flat beta</div></div>
+        <div class="card"><div class="stat">This period</div><div class="statval">$4.99</div></div>
+        <div class="card"><div class="stat">Next charge</div><div class="statval" style="font-size: 18px">Nov 27, 2026</div></div>
+      </div>
+      <div class="card">
+        <div style="font-size: 15px; font-weight: 700; margin-bottom: 10px">Invoices</div>
+        <table>
+          <tr><th>Period</th><th>Amount</th><th>Status</th></tr>
+          <tr><td>Sep 27 – Oct 27, 2026</td><td>$4.99</td><td style="color: #0A7A2F">Paid</td></tr>
+          <tr><td>Aug 27 – Sep 27, 2026</td><td>$4.99</td><td style="color: #0A7A2F">Paid</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- Alert settings -->
+    <div class="subpanel" data-subpanel="alerts">
+      <div class="card">
+        <div style="font-size: 15px; font-weight: 700; margin-bottom: 14px">Alert settings</div>
+        <label class="toggle-row"><input type="checkbox" checked> Bedtime / screen-time limit reached</label>
+        <label class="toggle-row"><input type="checkbox" checked> Geofence entry/exit</label>
+        <label class="toggle-row"><input type="checkbox" checked> New app install request</label>
+        <label class="toggle-row"><input type="checkbox"> Content filter block (every event — can be noisy)</label>
+        <label class="toggle-row"><input type="checkbox" checked> Agent disabled or removed</label>
+        <div style="font-size: 12px; color: #999; margin-top: 10px">"Agent disabled/removed" can't be turned off — a disclosed product never lets this go silent.</div>
+      </div>
     </div>
   </div>
 
@@ -194,6 +267,14 @@
       const tab = btn.dataset.tab;
       document.querySelectorAll('.tabs button').forEach((b) => b.classList.toggle('active', b === btn));
       document.querySelectorAll('.panel').forEach((p) => p.classList.toggle('active', p.dataset.panel === tab));
+    });
+  });
+
+  document.querySelectorAll('.subtabs button').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const sub = btn.dataset.subtab;
+      document.querySelectorAll('.subtabs button').forEach((b) => b.classList.toggle('sub-active', b === btn));
+      document.querySelectorAll('.subpanel').forEach((p) => p.classList.toggle('sub-active', p.dataset.subpanel === sub));
     });
   });
 
