@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3rdEye — Dashboard Mockups</title>
+<style>
+  body { margin: 0; font-family: -apple-system, "Segoe UI", sans-serif; background: #F7F7F5; color: #1F2328; }
+  a { color: #1D4E89; text-decoration: none; }
+  a:hover { color: #163d6b; }
+  button { font-family: inherit; cursor: pointer; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 10px 12px; font-size: 13px; border-bottom: 1px solid #F0EFEA; }
+  th { color: #888; font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: 0.04em; }
+  .wrap { width: 100%; max-width: 1320px; margin: 0 auto; padding: 32px 40px 80px; box-sizing: border-box; display: flex; flex-direction: column; gap: 24px; }
+  .card { background: white; border: 1px solid #E5E3DD; border-radius: 12px; padding: 20px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 16px; }
+  @media (max-width: 900px) { .grid3 { grid-template-columns: 1fr; } }
+  .stat { font-size: 12px; color: #888; }
+  .statval { font-size: 24px; font-weight: 700; margin-top: 4px; }
+  .tabs { display: flex; gap: 6px; background: white; border: 1px solid #E5E3DD; border-radius: 10px; padding: 4px; }
+  .tabs button { padding: 8px 16px; border-radius: 7px; border: none; font-size: 13px; font-weight: 600; background: transparent; color: #555; }
+  .tabs button.active { background: #1D4E89; color: #fff; }
+  .panel { display: none; flex-direction: column; gap: 20px; }
+  .panel.active { display: flex; }
+  .child-card { max-width: 480px; margin: 0 auto; background: white; border: 1px solid #E5E3DD; border-radius: 16px; padding: 28px; display: flex; flex-direction: column; gap: 16px; }
+  .row { display: flex; align-items: center; gap: 10px; border-radius: 10px; padding: 12px 14px; font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px">
+    <div style="display: flex; flex-direction: column; gap: 4px">
+      <a href="index.html" style="font-size: 13px; color: #888">&#8592; Back to feature map</a>
+      <h1 style="margin: 0; font-size: 26px">Dashboard mockups</h1>
+    </div>
+    <div class="tabs">
+      <button class="active" data-tab="0">Parent</button>
+      <button data-tab="1">Manager</button>
+      <button data-tab="2">IT Admin</button>
+      <button data-tab="3">Child view</button>
+    </div>
+  </div>
+
+  <!-- Parent dashboard -->
+  <div class="panel active" data-panel="0">
+    <div class="grid3">
+      <div class="card"><div class="stat">Today — Emma's iPad</div><div class="statval">1h 42m <span style="font-size: 14px; color: #888; font-weight: 400">/ 2h limit</span></div></div>
+      <div class="card"><div class="stat">Today — Jack's Windows PC</div><div class="statval" style="color: #B4530A">Locked <span style="font-size: 14px; color: #888; font-weight: 400">— limit reached</span></div></div>
+      <div class="card"><div class="stat">Pending approvals</div><div class="statval">1 <span style="font-size: 14px; color: #888; font-weight: 400">app install</span></div></div>
+    </div>
+    <div class="card">
+      <div style="font-size: 15px; font-weight: 700; margin-bottom: 10px">Alerts feed</div>
+      <table>
+        <tr><th>Time</th><th>Device</th><th>Event</th></tr>
+        <tr><td>5:32 PM</td><td>Jack's PC</td><td>Bedtime limit reached — device locked</td></tr>
+        <tr><td>4:10 PM</td><td>Emma's iPad</td><td>Arrived at: School (geofence)</td></tr>
+        <tr><td>3:48 PM</td><td>Emma's iPad</td><td>New app install request: "Among Us" — awaiting approval</td></tr>
+        <tr><td>1:02 PM</td><td>Jack's PC</td><td>Web filter blocked: a gambling-category site</td></tr>
+      </table>
+    </div>
+    <div class="card">
+      <div style="font-size: 15px; font-weight: 700; margin-bottom: 10px">Devices</div>
+      <table>
+        <tr><th>Child</th><th>Platform</th><th>Status</th><th>Last synced</th></tr>
+        <tr><td>Emma</td><td>iOS (iPad)</td><td style="color: #0A7A2F">Active</td><td>2 minutes ago</td></tr>
+        <tr><td>Jack</td><td>Windows</td><td style="color: #B4530A">Locked</td><td>Just now</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- Manager dashboard -->
+  <div class="panel" data-panel="1">
+    <div style="background: #FFF8EC; border: 1px solid #F0DBA8; border-radius: 10px; padding: 14px 18px; font-size: 13px; color: #7A5200">
+      Scoped to your assigned team only. Screenshots are off for this team — admin has not opted in.
+    </div>
+    <div class="card">
+      <div style="font-size: 15px; font-weight: 700; margin-bottom: 10px">Team productivity rollup — this week</div>
+      <table>
+        <tr><th>Employee</th><th>Active time</th><th>Productive</th><th>Distracting</th></tr>
+        <tr><td>R. Mehta</td><td>34h 12m</td><td>78%</td><td>9%</td></tr>
+        <tr><td>S. Kapoor</td><td>31h 05m</td><td>65%</td><td>18%</td></tr>
+        <tr><td>A. Fernandes</td><td>29h 40m</td><td>71%</td><td>12%</td></tr>
+      </table>
+    </div>
+    <div class="card">
+      <div style="font-size: 15px; font-weight: 700; margin-bottom: 10px">DLP-lite alerts (metadata only — never file contents)</div>
+      <table>
+        <tr><th>Time</th><th>Employee</th><th>Event</th></tr>
+        <tr><td>Yesterday, 6:40 PM</td><td>S. Kapoor</td><td>customer_list.xlsx copied to a personal USB drive</td></tr>
+        <tr><td>Tue, 2:15 PM</td><td>A. Fernandes</td><td>contract_draft.pdf uploaded to a personal cloud drive</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- IT admin dashboard -->
+  <div class="panel" data-panel="2">
+    <div class="grid3">
+      <div class="card"><div class="stat">Fleet compliance</div><div class="statval" style="color: #0A7A2F">92%</div></div>
+      <div class="card"><div class="stat">Devices enrolled</div><div class="statval">148</div></div>
+      <div class="card"><div class="stat">Flagged lost</div><div class="statval" style="color: #B4530A">1</div></div>
+    </div>
+    <div class="card">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px">
+        <div style="font-size: 15px; font-weight: 700">Device inventory</div>
+        <div style="display: flex; gap: 8px">
+          <button style="padding: 7px 12px; border-radius: 7px; border: 1px solid #E5E3DD; background: white; font-size: 12px">Push policy</button>
+          <button style="padding: 7px 12px; border-radius: 7px; border: 1px solid #E5E3DD; background: white; font-size: 12px; color: #B4530A">Lock selected</button>
+        </div>
+      </div>
+      <table>
+        <tr><th>Device</th><th>Owner</th><th>Compliance</th><th>Last check-in</th></tr>
+        <tr><td>MacBook Pro — IT-0042</td><td>R. Mehta</td><td style="color: #0A7A2F">Compliant</td><td>3 minutes ago</td></tr>
+        <tr><td>ThinkPad — IT-0117</td><td>S. Kapoor</td><td style="color: #B4530A">Encryption disabled</td><td>1 hour ago</td></tr>
+        <tr><td>iPhone 15 — IT-0203</td><td>A. Fernandes</td><td style="color: #B4530A">Flagged lost</td><td>14 hours ago</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- Child transparency screen -->
+  <div class="panel" data-panel="3">
+    <div class="child-card">
+      <div style="font-size: 12px; font-weight: 600; color: #1D4E89; text-transform: uppercase; letter-spacing: 0.05em">Emma's view, on her own iPad</div>
+      <h2 style="margin: 0; font-size: 22px">What my parent can see</h2>
+      <p style="margin: 0; font-size: 14px; color: #555">This is everything — nothing more, nothing hidden.</p>
+      <div style="display: flex; flex-direction: column; gap: 10px">
+        <div class="row" style="background: #EAF1FA"><span style="color: #0A7A2F; font-size: 16px">&#10003;</span><span>Screen time: 1h 42m today, 2h daily limit</span></div>
+        <div class="row" style="background: #EAF1FA"><span style="color: #0A7A2F; font-size: 16px">&#10003;</span><span>Location: at School since 4:10 PM</span></div>
+        <div class="row" style="background: #EAF1FA"><span style="color: #0A7A2F; font-size: 16px">&#10003;</span><span>App installs: "Among Us" is waiting on your parent's approval</span></div>
+        <div class="row" style="background: #EAF1FA"><span style="color: #0A7A2F; font-size: 16px">&#10003;</span><span>Web category: gambling, violence, adult sites are blocked</span></div>
+        <div class="row" style="background: #F4F3EE"><span style="color: #999; font-size: 16px">&#10007;</span><span style="color: #777">Never collected: message content, photos, microphone, camera</span></div>
+      </div>
+      <div style="font-size: 12px; color: #999; text-align: center; padding-top: 4px">3rdEye is always visible — this icon never disappears from your device.</div>
+    </div>
+  </div>
+
+</div>
+<script>
+  document.querySelectorAll('.tabs button').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const tab = btn.dataset.tab;
+      document.querySelectorAll('.tabs button').forEach((b) => b.classList.toggle('active', b === btn));
+      document.querySelectorAll('.panel').forEach((p) => p.classList.toggle('active', p.dataset.panel === tab));
+    });
+  });
+</script>
+</body>
+</html>

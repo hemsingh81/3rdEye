@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3rdEye — Feature Map</title>
+<style>
+  body { margin: 0; font-family: -apple-system, "Segoe UI", sans-serif; background: #F7F7F5; color: #1F2328; }
+  a { color: #1D4E89; text-decoration: none; }
+  a:hover { color: #163d6b; }
+  .wrap { width: 100%; max-width: 1320px; margin: 0 auto; padding: 56px 40px 80px; box-sizing: border-box; display: flex; flex-direction: column; gap: 40px; }
+  .cta { display: inline-flex; align-items: center; gap: 8px; background: #1D4E89; color: white; padding: 12px 20px; border-radius: 8px; font-size: 15px; font-weight: 600; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
+  @media (max-width: 900px) { .grid3 { grid-template-columns: 1fr; } }
+  .card { background: white; border: 1px solid #E5E3DD; border-radius: 12px; padding: 24px; display: flex; flex-direction: column; gap: 14px; }
+  .icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+  ul.feat { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; font-size: 14px; color: #333; }
+  ul.feat li { display: flex; gap: 8px; }
+  .yes { color: #0A7A2F; }
+  .no { color: #999; }
+  .footnote { margin-top: auto; font-size: 12px; color: #999; padding-top: 10px; border-top: 1px solid #F0EFEA; }
+  .xcut { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; font-size: 14px; color: #333; }
+  @media (max-width: 900px) { .xcut { grid-template-columns: 1fr 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div style="display: flex; flex-direction: column; gap: 10px">
+    <div style="font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #1D4E89">3rdEye — Feature Prototype</div>
+    <h1 style="margin: 0; font-size: 40px; line-height: 1.15; max-width: 760px">One product, three audiences, one rule that never bends: nothing hidden from the person being monitored.</h1>
+    <p style="margin: 0; font-size: 16px; color: #555; max-width: 700px">A rough map of what we're building, grouped by who it's for. Click a dashboard mockup below to see how each one actually looks and feels.</p>
+    <div style="margin-top: 8px">
+      <a class="cta" href="dashboards.html">See the dashboards &#8594;</a>
+    </div>
+  </div>
+
+  <div class="grid3">
+
+    <div class="card">
+      <div class="icon" style="background: #EAF1FA">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1D4E89" stroke-width="2" aria-hidden="true"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/></svg>
+      </div>
+      <div>
+        <div style="font-size: 17px; font-weight: 700">Family</div>
+        <div style="font-size: 13px; color: #888">Parental controls, child always informed</div>
+      </div>
+      <ul class="feat">
+        <li><span class="yes">&#10003;</span> Screen time limits &amp; bedtime — real lockout, not just a report</li>
+        <li><span class="yes">&#10003;</span> Web content filtering (category + custom blocklist)</li>
+        <li><span class="yes">&#10003;</span> App install approval</li>
+        <li><span class="yes">&#10003;</span> Location sharing + geofence alerts</li>
+        <li><span class="yes">&#10003;</span> Child's own "what my parent can see" screen</li>
+      </ul>
+      <div class="footnote">Phase 1 ships this tier first — Android + Windows.</div>
+    </div>
+
+    <div class="card">
+      <div class="icon" style="background: #FDF0E3">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#B45309" stroke-width="2" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+      </div>
+      <div>
+        <div style="font-size: 17px; font-weight: 700">Employer</div>
+        <div style="font-size: 13px; color: #888">Disclosed workforce visibility, never covert</div>
+      </div>
+      <ul class="feat">
+        <li><span class="yes">&#10003;</span> App &amp; site usage, categorized by admin</li>
+        <li><span class="yes">&#10003;</span> Active/idle time, productivity rollups</li>
+        <li><span class="yes">&#10003;</span> Optional screenshots — off by default, visible indicator</li>
+        <li><span class="yes">&#10003;</span> DLP-lite alerts (file moved to USB/cloud, metadata only)</li>
+        <li><span class="no">&#10007;</span> No keylogging. No covert webcam/mic. Ever.</li>
+      </ul>
+      <div class="footnote">Phase 4 — bundled with metered billing going live.</div>
+    </div>
+
+    <div class="card">
+      <div class="icon" style="background: #EDEAF7">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5B3FA6" stroke-width="2" aria-hidden="true"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M9 18h6"/></svg>
+      </div>
+      <div>
+        <div style="font-size: 17px; font-weight: 700">Fleet / MDM</div>
+        <div style="font-size: 13px; color: #888">Device management &amp; anti-theft, company-owned hardware</div>
+      </div>
+      <ul class="feat">
+        <li><span class="yes">&#10003;</span> Zero-touch enrollment (DEP / Android Enterprise / Autopilot)</li>
+        <li><span class="yes">&#10003;</span> Remote lock, remote wipe, lost-mode</li>
+        <li><span class="yes">&#10003;</span> Compliance checks (OS version, encryption, passcode)</li>
+        <li><span class="yes">&#10003;</span> Asset inventory &amp; fleet compliance dashboard</li>
+      </ul>
+      <div class="footnote">Phase 5 — last, most infrastructure-heavy, least differentiated.</div>
+    </div>
+
+  </div>
+
+  <div class="card">
+    <div style="font-size: 15px; font-weight: 700">Cross-cutting, true for all three</div>
+    <div class="xcut">
+      <div>&#9679; Mandatory, non-hideable agent icon on every platform</div>
+      <div>&#9679; Consent screen on enroll &amp; on any feature-flag change</div>
+      <div>&#9679; One license, one agent, one unified checkout</div>
+      <div>&#9679; Works offline — enforces &amp; collects locally, syncs later</div>
+    </div>
+  </div>
+
+  <div style="text-align: center; padding-top: 8px">
+    <a class="cta" href="dashboards.html">See the dashboards &#8594;</a>
+  </div>
+
+</div>
+</body>
+</html>
