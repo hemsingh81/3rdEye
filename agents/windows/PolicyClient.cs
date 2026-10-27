@@ -10,7 +10,14 @@ public record Policy(
     [property: JsonPropertyName("daily_limit_minutes")] int DailyLimitMinutes,
     [property: JsonPropertyName("bedtime_start")] string? BedtimeStart,
     [property: JsonPropertyName("bedtime_end")] string? BedtimeEnd,
-    [property: JsonPropertyName("content_filter_categories")] string[] ContentFilterCategories
+    [property: JsonPropertyName("content_filter_categories")] string[] ContentFilterCategories,
+    // STORY-11: added after a review catch — the backend had these columns
+    // (STORY-10) but never actually returned them from the policy-pull
+    // endpoint, so no agent could ever know what to enforce. Fixed in
+    // policy.ts; app_allowlist arrives as a flat array of app_id strings
+    // (approved_at/approved_by aren't needed for matching).
+    [property: JsonPropertyName("app_control_mode")] string? AppControlMode,
+    [property: JsonPropertyName("app_allowlist")] string[]? AppAllowlist
 );
 
 // offline-sync-spec.md §4: on connectivity, pull policy first, cache it

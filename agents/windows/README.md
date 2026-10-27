@@ -1,9 +1,8 @@
-# 3rdEye Windows Agent — Phase 1 slice (F1 + F2 + consent)
+# 3rdEye Windows Agent — Phase 1 (F1/F2/consent) + Phase 2 F3 enforcement
 
-Covers exactly mvp-build-plan.md Phase 1's scope: a visible tray agent that
-shows the mandatory consent screen once, then enforces screen-time/bedtime
-lockout (F1) and local DNS-based content filtering (F2) from a locally-cached
-`Policy` — no per-app limits, no app-install control (F3, Phase 2).
+A visible tray agent enforcing screen-time/bedtime lockout (F1), local
+DNS-based content filtering (F2), and app control (F3, STORY-11) from a
+locally-cached `Policy` — no per-app screen-time limits yet.
 
 **This was written on a Mac and has never been built or run.** There's no
 Windows/.NET toolchain in this environment to compile or test it — per
@@ -53,6 +52,20 @@ Conditioner-equivalent on Windows is Clumsy, per that doc).
 - `RegistryPolicy.cs` — the DoH-disabling mitigation that ships *with*
   `DnsFilter.cs`, not after it: pushes the `DnsOverHttpsMode` policy to
   Chrome/Edge so their own encrypted DNS doesn't silently bypass the filter.
+- `InstalledAppInventory.cs` — STORY-11's F3 inventory: enumerates the
+  registry Uninstall keys (both 64- and 32-bit hives), reports the full
+  current list every poll (idempotent on the backend, so no local diff
+  needed), and exposes `LastKnownAppIds` for `AppBlockEnforcer` to match
+  against.
+- `AppBlockEnforcer.cs` — F3 "block from running": terminates a blocked
+  app's process when found running. Not AppLocker/WDAC-grade (that's
+  Enterprise-edition-only) — a background process watcher is the smallest
+  thing a Home/Pro install actually allows. Matches a running process to
+  an installed app by a normalized-substring heuristic (a process's image
+  name and its registry `DisplayName` aren't the same string) — a real
+  limitation, not a guaranteed-correct mapping. Includes a respawn guard:
+  debounces repeated kill attempts and gives up (with one alert, not a
+  spam loop) after 3 consecutive respawns rather than fighting forever.
 
 ## Known shortcuts in this slice (upgrade later, don't build around now)
 
@@ -71,3 +84,16 @@ Conditioner-equivalent on Windows is Clumsy, per that doc).
   system itself. The DoH-disabling mitigation only covers Chrome/Edge;
   Firefox needs a separate `policies.json` mechanism, not implemented yet
   — a real, disclosed gap, named here rather than silently uncovered.
+- `AppBlockEnforcer`'s process-name-matching heuristic will have both
+  false negatives (a real match it doesn't catch, because the process
+  image name doesn't resemble the registry DisplayName closely enough)
+  and, in principle, false positives on a short/generic process name —
+  guarded against short names (<3 normalized characters are never
+  matched) but not eliminated. This is the documented limitation
+  family-tier-spec.md §2.1 already names for Windows' app-control row;
+  a production-grade mapping would need the install path correlated to
+  the running executable, not implemented in this slice.
+- No install-gate enforcement for non-Store apps on Windows (family-
+  tier-spec.md §2.1's known gap) — `AppBlockEnforcer` only catches an
+  unapproved app once it's already running, never prevents the install
+  itself for anything outside the Microsoft Store's own approval setting.

@@ -17,8 +17,17 @@ policyRouter.get("/:deviceId/policy", asyncHandler(async (req, res) => {
   // Android agents' Policy model both deserialize that exact field name
   // already; changing the response shape here would silently break them
   // even though the *query* now resolves through the child.
+  //
+  // STORY-11 review catch: this endpoint never returned app_control_mode
+  // or app_allowlist at all, even after STORY-10 added those columns —
+  // meaning no agent could ever actually know what to block. Added here;
+  // app_allowlist is flattened to a plain array of app_id strings (the
+  // agent needs the id list for matching, not approved_at/approved_by).
   const { rows } = await pool.query(
-    `SELECT d.id AS device_id, p.version, p.daily_limit_minutes, p.bedtime_start, p.bedtime_end, p.content_filter_categories, p.updated_at
+    `SELECT d.id AS device_id, p.version, p.daily_limit_minutes, p.bedtime_start, p.bedtime_end,
+            p.content_filter_categories, p.app_control_mode,
+            COALESCE((SELECT jsonb_agg(e->>'app_id') FROM jsonb_array_elements(p.app_allowlist) e), '[]'::jsonb) AS app_allowlist,
+            p.updated_at
      FROM policies p
      JOIN devices d ON d.child_profile_id = p.child_profile_id
      WHERE d.id = $1`,
@@ -65,7 +74,10 @@ policyRouter.put("/:deviceId/policy", requireAuth, asyncHandler(async (req, res)
        bedtime_end = EXCLUDED.bedtime_end,
        content_filter_categories = EXCLUDED.content_filter_categories,
        updated_at = now()
-     RETURNING $6::uuid AS device_id, version, daily_limit_minutes, bedtime_start, bedtime_end, content_filter_categories, updated_at`,
+     RETURNING $6::uuid AS device_id, version, daily_limit_minutes, bedtime_start, bedtime_end, content_filter_categories,
+       app_control_mode,
+       COALESCE((SELECT jsonb_agg(e->>'app_id') FROM jsonb_array_elements(app_allowlist) e), '[]'::jsonb) AS app_allowlist,
+       updated_at`,
     [childProfileId, daily_limit_minutes, bedtime_start ?? null, bedtime_end ?? null, content_filter_categories, req.params.deviceId],
   );
   res.json(rows[0]);

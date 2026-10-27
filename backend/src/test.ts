@@ -189,6 +189,14 @@ async function main() {
   assert(inventoryAfterApproval.find((a: any) => a.app_id === "com.example.among-us")?.is_approved === true, "the approved app now shows as approved in the inventory");
   assert(inventoryAfterApproval.find((a: any) => a.app_id === "com.example.minecraft")?.is_approved === false, "the OTHER app is unaffected — still not approved");
 
+  // STORY-11 review catch: the main policy-pull endpoint never exposed
+  // app_control_mode/app_allowlist at all — an agent could never actually
+  // know what to enforce. Confirm the fix: the device-channel policy pull
+  // (no auth) now reflects the just-approved app as a flat app_id array.
+  const policyPullAfterApproval = await fetch(`${base}/api/devices/${device.id}/policy`).then((r) => r.json());
+  assert(policyPullAfterApproval.app_control_mode === "default_deny", "policy pull exposes app_control_mode");
+  assert(Array.isArray(policyPullAfterApproval.app_allowlist) && policyPullAfterApproval.app_allowlist.includes("com.example.among-us"), "policy pull exposes the approved app_id as a flat array the agent can match against");
+
   // Reuses STORY-09's shared-policy device — approving from one device's
   // dashboard view approves it for every device under the same child.
   const secondDeviceInventoryCheck = await authedFetch(token, `/api/devices/${secondDevice.id}/installed-apps`);

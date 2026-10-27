@@ -59,6 +59,12 @@ internal static class Program
         dnsFilter.Blocked += domain => trayIcon.ShowBalloonTip(5000, "3rdEye", $"Blocked: {domain}", ToolTipIcon.Info);
         dnsFilter.Start();
 
+        // STORY-11: F3 app control — inventory + block-from-running.
+        var appInventory = new InstalledAppInventory(config.BackendUrl, config.DeviceId);
+        var appBlockEnforcer = new AppBlockEnforcer(policyClient, appInventory, eventQueue);
+        appBlockEnforcer.Blocked += appId => trayIcon.ShowBalloonTip(5000, "3rdEye", $"Blocked: {appId}", ToolTipIcon.Info);
+        _ = appInventory.ReportAsync(); // populate LastKnownAppIds before the first enforce tick can run
+
         _ = policyClient.SyncAndGetPolicyAsync(); // pull latest policy on startup; cache serves enforcement either way
 
         // STORY-01: policy pull first, then flush the event queue — same
@@ -70,6 +76,17 @@ internal static class Program
             await eventQueue.FlushAsync();
         };
         syncTimer.Start();
+
+        // Slower than the 1-minute lockout tick — inventory and block
+        // enforcement don't need that cadence, and a cheaper poll costs
+        // less for the same practical responsiveness.
+        var appControlTimer = new System.Windows.Forms.Timer { Interval = 30 * 1000 };
+        appControlTimer.Tick += async (_, _) =>
+        {
+            await appInventory.ReportAsync();
+            appBlockEnforcer.Tick();
+        };
+        appControlTimer.Start();
 
         var enforceTimer = new System.Windows.Forms.Timer { Interval = 60 * 1000 };
         enforceTimer.Tick += (_, _) => enforcer.Tick();
