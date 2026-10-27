@@ -61,7 +61,7 @@ Scope: the concrete technical backbone underneath every tier spec and the [mvp-b
 | **Event Stream / Queue** | Durable buffer between ingestion and storage/processing (see §5) | — |
 | **Metering & Billing Service** | Consumes events from the stream, aggregates into `UsageMeterEvent`, applies `LicenseAgreement` allowances/caps, generates `BillingPeriodInvoice` | `UsageMeterEvent`, `BillingPeriodInvoice`, `UsageCapEvent` |
 | **Notification Service** | Pushes alerts to parent/admin apps and devices (geofence, limit hit, agent disabled, lost-mode, DLP alert) via APNs/FCM/WNS/email; runs a scheduled sweep comparing every `Device.last_synced_at` against `Policy.stale_device_alert_threshold_hours` and fires a one-time "needs attention" alert per device per threshold-crossing (X9, offline-sync-spec.md §5) | `AlertEvent` |
-| **MDM Command Service** | Issues remote lock/wipe/locate/policy-push/**app-uninstall** commands via platform-native MDM protocols (APNs-based MDM, Android Enterprise DPC channel, Windows MDM/Autopilot channel) — **never a custom polling/beaconing protocol**, per av-edr-compliance-spec.md §5. App-uninstall is Android-native on any device; on iOS/macOS/Windows it only works once the device carries an MDM profile (Fleet-tier enrollment), same constraint as family-tier-spec.md §2.1 | `RemoteActionLog`, `LostModeEvent` |
+| **MDM Command Service** | Issues remote lock/wipe/locate/policy-push/**app-uninstall** commands via platform-native MDM protocols (APNs-based MDM, Android Enterprise DPC channel, Windows MDM/Autopilot channel) — **never a custom polling/beaconing protocol**, per av-edr-compliance-spec.md §5. App-uninstall requires the device to carry an MDM profile/be under Device-Owner management on **every** platform including Android — a third-party Family-tier install has no remote-uninstall path on any OS, per family-tier-spec.md §2.1's correction and android-agent-spec.md §1 | `RemoteActionLog`, `LostModeEvent` |
 | **Licensing & Checkout Service** | Serves the unified purchase journey (licensing-billing-spec.md §2), stores `LicenseTemplate`/`LicenseAgreement`, drives feature-flag provisioning | `LicenseTemplate`, `LicenseAgreement` |
 | **Admin Console (Web Frontend)** | Dashboards, policy editor, checkout UI, audit log viewer | — (reads from above services only) |
 | **Audit Service** | Records every policy change, data export, remote action, consent acceptance for compliance | `AuditLogEntry` |
@@ -126,6 +126,18 @@ AuditLogEntry (actor_id, action, target_id, ts)
 ```
 
 **Key design decision:** `Policy.derived_from` ties every tier's policy object back to one `LicenseAgreement`, so a feature can never be "on" for billing/provisioning purposes without also being on for the consent/disclosure screen the monitored person sees — this is the technical enforcement of the principle already stated in licensing-billing-spec.md §6.
+
+### 2.1 Authentication (JWT)
+
+The Phase 0/1 backend (implementation-plan.md §0) currently has **no authentication at all** — `GET /api/devices?family_id=` will return any family's devices to anyone who knows or guesses the UUID. This is the concrete gap this section closes, decision only (implementation is a separate task, not done by writing this).
+
+- **Mechanism:** JWT, not session-store-backed sessions — avoids needing a session table/service before there's a reason to (same "don't split services early" reasoning as §0.1 of implementation-plan.md).
+- **Issuance:** `POST /api/auth/login` (email + password for Phase 1; SSO per employer-tier-spec.md §8 is Employer-tier, not needed yet) returns a signed JWT.
+- **Claims:** `sub` (user id), `family_id` or `org_id` (whichever applies), `role` (parent/admin/manager/IT-viewer — per the RBAC roles already named in product-spec.md §5), `exp`.
+- **Expiry:** a single short-lived token (1 hour), no refresh-token flow for Phase 1 — the smallest complete thing; a parent re-logging in once an hour is a minor annoyance, not a problem worth a refresh-token mechanism before anyone's actually hit it.
+- **Storage:** `httpOnly`, `Secure` cookie from the Admin Console frontend — not `localStorage`, to keep the token out of reach of an XSS bug.
+- **Enforcement:** every route under `/api/families`, `/api/devices`, and the policy routes requires a valid JWT; the `family_id`/`org_id` claim scopes every query (a parent's token can only ever query their own `family_id` — this closes the exact gap named above, not just adds a login screen on top of the same open queries).
+- **Not covered here:** the device-side agent's own calls (`GET /api/devices/by-code/:code`, `POST /api/devices/:id/consent`, policy pull) are a different trust boundary — a device identifies itself by its `device_id` + enrollment state, not a user JWT. Scoping *that* channel (so one device can't read another device's policy) is a separate, smaller piece of work, not solved by this section.
 
 For how to actually test this stack — backend via Podman on a Mac dev host, plus all 4 agent platforms via emulator/simulator/VM — see [testing-strategy-spec.md](./testing-strategy-spec.md).
 
